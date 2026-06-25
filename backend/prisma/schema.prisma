@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// USER MODEL
+// ============================================================
+model User {
+  id          String   @id @default(cuid())
+  firebaseUID String   @unique
+  name        String
+  email       String   @unique
+  photo       String?
+  publicKey   String?  // RSA public key for key wrapping
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  files              File[]
+  folders            Folder[]
+  sharesOwned        Share[]        @relation("ShareOwner")
+  activities         Activity[]
+  notifications      Notification[]
+  accessRequests     AccessRequest[]
+
+  @@map("users")
+}
+
+// ============================================================
+// FOLDER MODEL
+// ============================================================
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner    User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  parent   Folder?  @relation("FolderChildren", fields: [parentId], references: [id])
+  children Folder[] @relation("FolderChildren")
+  files    File[]
+
+  @@map("folders")
+}
+
+// ============================================================
+// FILE MODEL
+// ============================================================
+model File {
+  id                String   @id @default(cuid())
+  ownerId           String
+  folderId          String?
+  filename          String   // display name
+  originalName      String   // original file name before encryption
+  encryptedPath     String   // Supabase Storage path to encrypted blob
+  size              BigInt   // original file size in bytes
+  mimeType          String
+  encryptionType    String   // e.g. "AES-256-GCM" or "AES-256-GCM+ChaCha20"
+  encryptedKey      String   // RSA-wrapped AES key (for owner)
+  iv                String   // base64 IV used for AES layer
+  layerCount        Int      @default(1)
+  isDeleted         Boolean  @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Owner controls
+  watermarkEnabled  Boolean  @default(false)
+  downloadDisabled  Boolean  @default(false)
+
+  // Relations
+  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  folder           Folder?           @relation(fields: [folderId], references: [id])
+  shares           Share[]
+  activities       Activity[]
+  encryptionLayers EncryptionLayer[]
+  accessRequests   AccessRequest[]
+
+  @@map("files")
+}
+
+// ============================================================
+// ENCRYPTION LAYER MODEL
+// ============================================================
+model EncryptionLayer {
+  id        String @id @default(cuid())
+  fileId    String
+  algorithm String // "AES-256-GCM" | "ChaCha20-Poly1305" | "XChaCha20"
+  order     Int    // 1, 2, 3 (applied in order)
+  iv        String // base64 IV for this layer
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@map("encryption_layers")
+}
+
+// ============================================================
+// SHARE MODEL
+// ============================================================
+model Share {
+  id                String    @id @default(cuid())
+  fileId            String
+  ownerId           String
+  recipientEmail    String?
+  token             String    @unique @default(cuid())
+  encryptedKeyForRecipient String? // wrapped AES key for recipient's public key
+  canView           Boolean   @default(true)
+  canDownload       Boolean   @default(false)
+  canEdit           Boolean   @default(false)
+  expiresAt         DateTime?
+  maxViews          Int?
+  viewCount         Int       @default(0)
+  passwordHash      String?   // bcrypt hash of share password
+  requireOTP        Boolean   @default(false)
+  ipRestriction     String?   // comma-separated allowed IPs
+  deviceRestriction String?
+  isRevoked         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  file  File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  owner User @relation("ShareOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("shares")
+}
+
+// ============================================================
+// ACTIVITY MODEL
+// ============================================================
+model Activity {
+  id        String   @id @default(cuid())
+  userId    String
+  fileId    String?
+  action    String   // "upload" | "download" | "view" | "share" | "delete" | "rename" | "login" | "logout" | "failed_access" | "expired_link" | "revoke"
+  ipAddress String?
+  userAgent String?
+  metadata  Json?    // extra context
+  createdAt DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file File? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@map("activities")
+}
+
+// ============================================================
+// NOTIFICATION MODEL
+// ============================================================
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // "view" | "download" | "share" | "request" | "revoke" | "expire"
+  message   String
+  fileId    String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ============================================================
+// ACCESS REQUEST MODEL
+// ============================================================
+model AccessRequest {
+  id          String   @id @default(cuid())
+  fileId      String
+  requesterId String
+  message     String?
+  status      String   @default("pending") // "pending" | "approved" | "rejected"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  file      File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  requester User @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@map("access_requests")
+}
