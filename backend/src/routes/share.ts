@@ -164,6 +164,8 @@ router.get('/:token', async (req: Request, res: Response) => {
         mimeType: share.file.mimeType,
         size: share.file.size.toString(),
         encryptionType: share.file.encryptionType,
+        encryptedKey: share.file.encryptedKey,
+        iv: share.file.iv,
         encryptionLayers: share.file.encryptionLayers,
         watermarkEnabled: share.file.watermarkEnabled,
         downloadDisabled: share.file.downloadDisabled,

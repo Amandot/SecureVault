@@ -85,9 +85,36 @@ export const unwrapAESKey = async (
     rsaPrivateKey,
     { name: 'RSA-OAEP' },
     { name: 'AES-GCM', length: 256 },
-    true,
-    ['decrypt']
+    true,        // extractable — needed so we can re-wrap for a recipient
+    ['encrypt', 'decrypt']
   );
+};
+
+/**
+ * Re-wrap an AES key for a recipient:
+ * 1. Unwrap the owner's copy using the owner's RSA private key
+ * 2. Export the raw AES key bytes
+ * 3. Wrap those bytes with the recipient's RSA public key
+ *
+ * Returns the base64-encoded wrapped key to store as encryptedKeyForRecipient.
+ */
+export const rewrapAESKeyForRecipient = async (
+  ownerWrappedKeyBase64: string,
+  ownerPrivateKey: CryptoKey,
+  recipientPublicKey: CryptoKey
+): Promise<string> => {
+  // Unwrap to get the raw AES key
+  const aesKey = await unwrapAESKey(ownerWrappedKeyBase64, ownerPrivateKey);
+
+  // Wrap the AES key with recipient's RSA public key
+  const wrappedForRecipient = await crypto.subtle.wrapKey(
+    'raw',
+    aesKey,
+    recipientPublicKey,
+    { name: 'RSA-OAEP' }
+  );
+
+  return btoa(String.fromCharCode(...new Uint8Array(wrappedForRecipient)));
 };
 
 // ─── Local Storage (Encrypted Private Key) ──────────────────────────────────

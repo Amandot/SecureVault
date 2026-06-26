@@ -119,18 +119,22 @@ export default function UploadPage() {
       let privateKey: CryptoKey;
 
       if (!hasStoredPrivateKey() || !appUser.publicKey) {
+        // Master passphrase is required to store the private key locally
+        if (!masterPassphrase) {
+          setStatus({ phase: 'error', progress: 0, message: 'A master passphrase is required to protect your private key. Please enter one before uploading.' });
+          return;
+        }
+
         setStatus({ phase: 'encrypting', progress: 15, message: 'Generating RSA key pair...' });
         const keyPair = await generateKeyPair();
         privateKey = keyPair.privateKey;
 
         const publicKeyJwk = await exportPublicKey(keyPair.publicKey);
 
-        // Store private key encrypted with master passphrase
-        if (masterPassphrase) {
-          const { exportPrivateKey } = await import('../../../lib/crypto/keyManager');
-          const pkcs8 = await exportPrivateKey(privateKey);
-          await storePrivateKey(pkcs8, masterPassphrase);
-        }
+        // Always store the private key encrypted with the master passphrase
+        const { exportPrivateKey } = await import('../../../lib/crypto/keyManager');
+        const pkcs8 = await exportPrivateKey(privateKey);
+        await storePrivateKey(pkcs8, masterPassphrase);
 
         // Upload public key to backend
         await authApi.updatePublicKey(publicKeyJwk);
@@ -519,37 +523,38 @@ export default function UploadPage() {
         )}
 
         {/* Master Passphrase (for private key storage) */}
-        {!hasStoredPrivateKey() && (
-          <div style={{ marginTop: 20 }}>
-            <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
-              Master Passphrase{' '}
-              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
-                (protects your private key — remember this!)
-              </span>
-            </label>
-            <input
-              id="master-passphrase-input"
-              type="password"
-              placeholder="Choose a strong master passphrase"
-              value={masterPassphrase}
-              onChange={(e) => setMasterPassphrase(e.target.value)}
-              className="input-field"
-            />
-            {masterPassphrase && (
-              <div style={{ marginTop: 8 }}>
-                <div className="progress-bar">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${strength.score}%`, background: strength.color }}
-                  />
-                </div>
-                <span style={{ fontSize: 11, color: strength.color, marginTop: 4, display: 'block' }}>
-                  {strength.label} passphrase
-                </span>
+        <div style={{ marginTop: 20 }}>
+          <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
+            Master Passphrase{' '}
+            <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+              {hasStoredPrivateKey()
+                ? '(your key is stored — enter the same passphrase to decrypt after upload)'
+                : '(required — protects your private key · remember this!)'}
+            </span>
+          </label>
+          <input
+            id="master-passphrase-input"
+            type="password"
+            placeholder={hasStoredPrivateKey() ? 'Enter your existing master passphrase' : 'Choose a strong master passphrase'}
+            value={masterPassphrase}
+            onChange={(e) => setMasterPassphrase(e.target.value)}
+            className="input-field"
+          />
+          {masterPassphrase && (
+            <div style={{ marginTop: 8 }}>
+              <div className="progress-bar">
+                <div
+                  className="progress-bar-fill"
+                  style={{ width: `${strength.score}%`, background: strength.color }}
+                />
               </div>
-            )}
-          </div>
-        )}
+              <span style={{ fontSize: 11, color: strength.color, marginTop: 4, display: 'block' }}>
+                {strength.label} passphrase
+              </span>
+            </div>
+          )}
+        </div>
+
       </motion.div>
 
       {/* ─── Access Controls ─────────────────────────────────────────────── */}
