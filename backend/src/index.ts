@@ -24,6 +24,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Sanitize CORS origin by removing any trailing slash
+const corsOrigin = (process.env.CORS_ORIGIN || 'http://localhost:3000').replace(/\/$/, '');
+
 // ─── Security Middleware ────────────────────────────────────────────────────
 app.use(
   helmet({
@@ -34,7 +37,7 @@ app.use(
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -92,7 +95,7 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`\n🔐 SecureVault Backend running on http://localhost:${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`   Allowed origin: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}\n`);
+  console.log(`   Allowed origin: ${corsOrigin}\n`);
 });
 
 export default app;
