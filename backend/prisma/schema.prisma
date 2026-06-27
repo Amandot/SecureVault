@@ -76,8 +76,17 @@ model File {
   updatedAt         DateTime @updatedAt
 
   // Owner controls
-  watermarkEnabled  Boolean  @default(false)
-  downloadDisabled  Boolean  @default(false)
+  watermarkEnabled   Boolean  @default(false)
+  downloadDisabled   Boolean  @default(false)
+
+  // Watermark configuration
+  watermarkFields    String   @default("[]")       // JSON array of field keys
+  watermarkText      String?                        // custom text / company name
+  watermarkOpacity   Int      @default(50)          // 25 | 50 | 75 | 90
+  watermarkFontSize  String   @default("medium")    // "small" | "medium" | "large"
+  watermarkRotation  Int      @default(45)          // 30 | 45 | 60
+  watermarkPlacement String   @default("diagonal")  // "diagonal"|"top-left"|"top-right"|"bottom-right"|"bottom-left"|"center"
+  watermarkColor     String   @default("white")     // "white" | "gray" | "lightblue" | "red"
 
   // Relations
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)

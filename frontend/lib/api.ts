@@ -63,6 +63,14 @@ export const filesApi = {
     layerCount?: number;
     watermarkEnabled?: boolean;
     downloadDisabled?: boolean;
+    // Watermark config
+    watermarkFields?: string;
+    watermarkText?: string;
+    watermarkOpacity?: number;
+    watermarkFontSize?: string;
+    watermarkRotation?: number;
+    watermarkPlacement?: string;
+    watermarkColor?: string;
     layers?: Array<{ algorithm: string; order: number; iv: string }>;
   }, onUploadProgress?: (progressEvent: any) => void) => {
     const formData = new FormData();
@@ -77,6 +85,14 @@ export const filesApi = {
     if (data.layerCount !== undefined) formData.append('layerCount', data.layerCount.toString());
     if (data.watermarkEnabled !== undefined) formData.append('watermarkEnabled', data.watermarkEnabled.toString());
     if (data.downloadDisabled !== undefined) formData.append('downloadDisabled', data.downloadDisabled.toString());
+    // Watermark config
+    if (data.watermarkFields !== undefined) formData.append('watermarkFields', data.watermarkFields);
+    if (data.watermarkText !== undefined) formData.append('watermarkText', data.watermarkText);
+    if (data.watermarkOpacity !== undefined) formData.append('watermarkOpacity', data.watermarkOpacity.toString());
+    if (data.watermarkFontSize !== undefined) formData.append('watermarkFontSize', data.watermarkFontSize);
+    if (data.watermarkRotation !== undefined) formData.append('watermarkRotation', data.watermarkRotation.toString());
+    if (data.watermarkPlacement !== undefined) formData.append('watermarkPlacement', data.watermarkPlacement);
+    if (data.watermarkColor !== undefined) formData.append('watermarkColor', data.watermarkColor);
     if (data.layers) formData.append('layers', JSON.stringify(data.layers));
 
     return api.post('/files/upload', formData, {
@@ -92,6 +108,14 @@ export const filesApi = {
       folderId?: string | null;
       watermarkEnabled?: boolean;
       downloadDisabled?: boolean;
+      // Watermark config
+      watermarkFields?: string;
+      watermarkText?: string | null;
+      watermarkOpacity?: number;
+      watermarkFontSize?: string;
+      watermarkRotation?: number;
+      watermarkPlacement?: string;
+      watermarkColor?: string;
     }
   ) => api.patch(`/files/${id}`, data),
   delete: (id: string, permanent?: boolean) =>

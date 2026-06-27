@@ -5,7 +5,10 @@ import { X, Eye, Loader2, Lock, AlertCircle, Download } from 'lucide-react';
 import { filesApi } from '../../lib/api';
 import { decryptFile, downloadEncryptedFile } from '../../lib/crypto/fileEncryptor';
 import { loadPrivateKey } from '../../lib/crypto/keyManager';
+import { useAuth } from '../../lib/auth/AuthContext';
 import ModalPortal from './ModalPortal';
+import WatermarkOverlay, { type WatermarkConfig } from '../WatermarkOverlay';
+import SecurePdfViewer from '../viewer/SecurePdfViewer';
 
 interface PreviewModalProps {
   fileId: string;
@@ -13,6 +16,7 @@ interface PreviewModalProps {
 }
 
 export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
+  const { appUser } = useAuth();
   const [step, setStep] = useState<'loading_meta' | 'passphrase' | 'decrypting' | 'preview' | 'error'>('loading_meta');
   const [error, setError] = useState('');
   const [fileMeta, setFileMeta] = useState<any>(null);
@@ -20,6 +24,7 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
   const [masterPassphrase, setMasterPassphrase] = useState('');
   const [layerPassphrases, setLayerPassphrases] = useState<string[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [decryptedPdfBuffer, setDecryptedPdfBuffer] = useState<ArrayBuffer | Uint8Array | null>(null);
 
   useEffect(() => {
     filesApi.get(fileId)
@@ -52,7 +57,7 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
         throw new Error('Wrong master passphrase — decryption failed. Please try again.');
       }
       if (!privateKey) {
-        throw new Error('No private key found. Please re-upload the file first (a master passphrase is required during upload to store your key).');
+        throw new Error('No private key found. Please re-upload the file first.');
       }
 
       const encryptedBuffer = await downloadEncryptedFile(downloadUrl);
@@ -69,8 +74,12 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
         layers,
       });
 
-      const blob = new Blob([decryptedBuffer], { type: fileMeta.mimeType });
-      setPreviewUrl(URL.createObjectURL(blob));
+      if (fileMeta.mimeType === 'application/pdf') {
+        setDecryptedPdfBuffer(decryptedBuffer); 
+      } else {
+        const blob = new Blob([decryptedBuffer], { type: fileMeta.mimeType });
+        setPreviewUrl(URL.createObjectURL(blob));
+      }
       setStep('preview');
     } catch (err: any) {
       setError(err.message || 'Decryption failed. Check your passphrases.');
@@ -78,17 +87,68 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
     }
   };
 
+  // Build watermark config from file metadata
+  const watermarkConfig: WatermarkConfig | null = fileMeta?.watermarkEnabled
+    ? {
+        fields: (() => { try { return JSON.parse(fileMeta.watermarkFields || '[]'); } catch { return []; } })(),
+        customText: fileMeta.watermarkText || null,
+        opacity: fileMeta.watermarkOpacity ?? 50,
+        fontSize: (fileMeta.watermarkFontSize as 'small' | 'medium' | 'large') ?? 'medium',
+        rotation: fileMeta.watermarkRotation ?? 45,
+        placement: (fileMeta.watermarkPlacement as any) ?? 'diagonal',
+        color: (fileMeta.watermarkColor as any) ?? 'white',
+      }
+    : null;
+
+  const viewerInfo = { name: appUser?.name, email: appUser?.email ?? undefined };
+
   const renderPreviewContent = () => {
     if (!previewUrl || !fileMeta) return null;
     const mime = fileMeta.mimeType.toLowerCase();
-    if (mime.startsWith('image/'))
-      return <img src={previewUrl} alt={fileMeta.filename} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 8 }} />;
-    if (mime.startsWith('video/'))
-      return <video src={previewUrl} controls style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: 8 }} />;
-    if (mime.startsWith('audio/'))
-      return <audio src={previewUrl} controls style={{ width: '100%', marginTop: 20 }} />;
-    if (mime === 'application/pdf' || mime.startsWith('text/'))
-      return <iframe src={previewUrl} style={{ width: '100%', height: '70vh', border: 'none', borderRadius: 8, background: '#fff' }} />;
+    const downloadDisabled = fileMeta.downloadDisabled;
+
+    const blockRight = (e: React.MouseEvent) => { if (downloadDisabled) e.preventDefault(); };
+
+    if (mime.startsWith('image/')) {
+      return (
+        <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', maxHeight: '70vh' }}>
+          <img src={previewUrl} alt={fileMeta.filename}
+            onContextMenu={blockRight}
+            style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 8, display: 'block' }} />
+          {watermarkConfig && <WatermarkOverlay config={watermarkConfig} viewer={viewerInfo} />}
+        </div>
+      );
+    }
+    if (mime.startsWith('video/')) {
+      return (
+        <div style={{ position: 'relative', maxWidth: '100%' }}>
+          <video src={previewUrl} controls
+            controlsList={downloadDisabled ? 'nodownload' : undefined}
+            onContextMenu={blockRight}
+            style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: 8, display: 'block' }} />
+          {watermarkConfig && <WatermarkOverlay config={watermarkConfig} viewer={viewerInfo} />}
+        </div>
+      );
+    }
+    if (mime.startsWith('audio/')) {
+      return (
+        <div style={{ width: '100%', marginTop: 20 }}>
+          <audio src={previewUrl} controls
+            controlsList={downloadDisabled ? 'nodownload' : undefined}
+            style={{ width: '100%' }} />
+        </div>
+      );
+    }
+    if (mime.startsWith('text/')) {
+      return (
+        <div style={{ position: 'relative', width: '100%', height: '70vh' }}>
+          <iframe src={previewUrl}
+            style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8, background: '#fff' }} />
+          {watermarkConfig && <WatermarkOverlay config={watermarkConfig} viewer={viewerInfo} />}
+        </div>
+      );
+    }
+    // Fallback for other types
     return (
       <div style={{ textAlign: 'center', padding: '40px 20px' }}>
         <Download size={48} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
@@ -96,23 +156,34 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
         <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>
           This file type ({fileMeta.mimeType}) cannot be previewed in the browser.
         </p>
-        <a href={previewUrl} download={fileMeta.filename} className="btn-primary" style={{ textDecoration: 'none' }}>
-          <Download size={16} /> Download Decrypted File
-        </a>
+        {!downloadDisabled && (
+          <a href={previewUrl} download={fileMeta.filename} className="btn-primary" style={{ textDecoration: 'none' }}>
+            <Download size={16} /> Download Decrypted File
+          </a>
+        )}
       </div>
     );
   };
+
+  if (step === 'preview' && fileMeta?.mimeType === 'application/pdf' && decryptedPdfBuffer) {
+    return (
+      <SecurePdfViewer
+        pdfBuffer={decryptedPdfBuffer}
+        filename={fileMeta.filename}
+        canDownload={!fileMeta.downloadDisabled}
+        watermarkConfig={watermarkConfig}
+        viewerInfo={viewerInfo}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     <ModalPortal onClose={onClose} maxWidth={step === 'preview' ? 900 : 480} padding={24}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 10,
-            background: 'var(--accent-dim)', border: '1px solid rgba(0,200,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--accent-dim)', border: '1px solid rgba(0,200,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Eye size={18} color="var(--accent)" />
           </div>
           <div>
@@ -122,6 +193,8 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
             {fileMeta && step === 'preview' && (
               <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 2, margin: 0 }}>
                 Decrypted on the fly • Never sent to server
+                {fileMeta.downloadDisabled && <span style={{ color: 'var(--danger)', marginLeft: 6 }}>• Download disabled</span>}
+                {fileMeta.watermarkEnabled && <span style={{ color: 'var(--warning)', marginLeft: 6 }}>• Watermarked</span>}
               </p>
             )}
           </div>
@@ -153,15 +226,10 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
-                Master Passphrase
-              </label>
-              <input type="password" value={masterPassphrase}
-                onChange={(e) => setMasterPassphrase(e.target.value)}
-                placeholder="Enter your master passphrase"
-                className="input-field" autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && masterPassphrase && handleDecrypt()}
-              />
+              <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Master Passphrase</label>
+              <input type="password" value={masterPassphrase} onChange={(e) => setMasterPassphrase(e.target.value)}
+                placeholder="Enter your master passphrase" className="input-field" autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && masterPassphrase && handleDecrypt()} />
             </div>
 
             {fileMeta.encryptionLayers?.map((layer: any, i: number) => (
@@ -170,11 +238,7 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
                   Layer {layer.order} ({layer.algorithm}) Passphrase
                 </label>
                 <input type="password" value={layerPassphrases[i]}
-                  onChange={(e) => {
-                    const newVals = [...layerPassphrases];
-                    newVals[i] = e.target.value;
-                    setLayerPassphrases(newVals);
-                  }}
+                  onChange={(e) => { const nv = [...layerPassphrases]; nv[i] = e.target.value; setLayerPassphrases(nv); }}
                   placeholder="Enter layer passphrase" className="input-field" />
               </div>
             ))}
@@ -204,9 +268,7 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
               </div>
             </div>
             <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Decrypting...</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-              Downloading and decrypting in your browser. This might take a moment for large files.
-            </p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Downloading and decrypting in your browser. This might take a moment for large files.</p>
           </div>
         )}
 

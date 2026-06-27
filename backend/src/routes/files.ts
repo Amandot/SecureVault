@@ -54,6 +54,14 @@ const uploadSchema = z.object({
   layerCount: z.string().optional().transform(v => v ? parseInt(v, 10) : 1),
   watermarkEnabled: z.string().optional().transform(v => v === 'true'),
   downloadDisabled: z.string().optional().transform(v => v === 'true'),
+  // Watermark config fields
+  watermarkFields: z.string().optional(),
+  watermarkText: z.string().optional(),
+  watermarkOpacity: z.string().optional().transform(v => v ? parseInt(v, 10) : 50),
+  watermarkFontSize: z.string().optional(),
+  watermarkRotation: z.string().optional().transform(v => v ? parseInt(v, 10) : 45),
+  watermarkPlacement: z.string().optional(),
+  watermarkColor: z.string().optional(),
   layers: z.string().optional().transform(v => {
     if (!v) return undefined;
     try {
@@ -89,8 +97,16 @@ router.post('/upload', authenticate, upload.single('encryptedFile'), async (req:
         iv: body.iv,
         layerCount: body.layerCount,
         folderId: body.folderId || null,
-        watermarkEnabled: body.watermarkEnabled,
-        downloadDisabled: body.downloadDisabled,
+        watermarkEnabled: body.watermarkEnabled ?? false,
+        downloadDisabled: body.downloadDisabled ?? false,
+        // Watermark config
+        watermarkFields: body.watermarkFields || '[]',
+        watermarkText: body.watermarkText || null,
+        watermarkOpacity: body.watermarkOpacity ?? 50,
+        watermarkFontSize: body.watermarkFontSize || 'medium',
+        watermarkRotation: body.watermarkRotation ?? 45,
+        watermarkPlacement: body.watermarkPlacement || 'diagonal',
+        watermarkColor: body.watermarkColor || 'white',
         encryptionLayers: body.layers
           ? {
               create: body.layers.map((l: any) => ({
@@ -146,12 +162,66 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       return;
     }
 
-    // Generate a short-lived download URL
-    const downloadUrl = await createSignedDownloadUrl(file.encryptedPath);
+    // Always generate a signed URL for the encrypted blob (needed for decryption/preview)
+    const encryptedFileUrl = await createSignedDownloadUrl(file.encryptedPath);
+
+    // Only provide a named download URL if download is not disabled
+    // (owner can always download their own files — downloadDisabled applies to share recipients)
+    const downloadUrl = encryptedFileUrl;
 
     res.json({ file: { ...file, size: file.size.toString() }, downloadUrl });
   } catch (error) {
     console.error('GET /files/:id error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /api/files/:id/download ─────────────────────────────────────────────
+// Explicit download endpoint — enforces downloadDisabled at backend level
+router.get('/:id/download', authenticate, async (req: Request, res: Response) => {
+  try {
+    // Allow access if user is the owner OR has an active share with canDownload
+    const file = await prisma.file.findFirst({
+      where: { id: req.params.id, isDeleted: false },
+    });
+
+    if (!file) {
+      res.status(404).json({ error: 'File not found' });
+      return;
+    }
+
+    const isOwner = file.ownerId === req.user!.id;
+
+    if (!isOwner) {
+      // Check for a valid share with canDownload
+      const share = await prisma.share.findFirst({
+        where: {
+          fileId: file.id,
+          isRevoked: false,
+          canDownload: true,
+          OR: [
+            { recipientEmail: req.user!.email },
+            { recipientEmail: null },
+          ],
+        },
+      });
+
+      if (!share) {
+        res.status(403).json({ error: 'You do not have download permission for this file.' });
+        return;
+      }
+    }
+
+    // Enforce file-level downloadDisabled for non-owners
+    if (!isOwner && file.downloadDisabled) {
+      res.status(403).json({ error: 'Download has been disabled by the file owner.' });
+      return;
+    }
+
+    const downloadUrl = await createSignedDownloadUrl(file.encryptedPath);
+    res.json({ downloadUrl });
+  } catch (error) {
+    console.error('GET /files/:id/download error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -162,6 +232,14 @@ const updateFileSchema = z.object({
   folderId: z.string().nullable().optional(),
   watermarkEnabled: z.boolean().optional(),
   downloadDisabled: z.boolean().optional(),
+  // Watermark config
+  watermarkFields: z.string().optional(),
+  watermarkText: z.string().nullable().optional(),
+  watermarkOpacity: z.number().int().optional(),
+  watermarkFontSize: z.string().optional(),
+  watermarkRotation: z.number().int().optional(),
+  watermarkPlacement: z.string().optional(),
+  watermarkColor: z.string().optional(),
 });
 
 router.patch('/:id', authenticate, async (req: Request, res: Response) => {
