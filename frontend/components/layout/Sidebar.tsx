@@ -49,19 +49,21 @@ export default function Sidebar() {
 
   return (
     <motion.aside
+      id="mobile-sidebar"
+      className="mobile-sidebar"
       animate={{ width: collapsed ? 72 : 260 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       style={{
         background: 'var(--secondary-bg)',
         borderRight: '1px solid var(--border)',
         height: '100vh',
-        position: 'fixed',
-        left: 0,
+        position: 'sticky',
         top: 0,
         zIndex: 40,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        flexShrink: 0,
       }}
     >
       {/* ─── Logo ────────────────────────────────────────────────────────── */}
@@ -286,15 +288,29 @@ export default function Sidebar() {
             cursor: 'pointer',
             color: 'var(--text-muted)',
             display: 'flex',
-            padding: 4,
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 8px',
             borderRadius: 6,
-            transition: 'color 0.2s',
+            transition: 'all 0.2s',
             flexShrink: 0,
           }}
-          onMouseEnter={(e) => ((e.target as HTMLButtonElement).style.color = 'var(--danger)')}
-          onMouseLeave={(e) => ((e.target as HTMLButtonElement).style.color = 'var(--text-muted)')}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--danger)')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)')}
         >
           <LogOut size={16} />
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap' }}
+              >
+                Sign out
+              </motion.span>
+            )}
+          </AnimatePresence>
         </button>
       </div>
     </motion.aside>

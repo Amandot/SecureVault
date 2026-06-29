@@ -20,22 +20,16 @@ export default function DashboardLayout({
       <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--primary-bg)' }}>
         <Sidebar />
         <div
-          style={{
-            flex: 1,
-            marginLeft: 260,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '100vh',
-            transition: 'margin-left 0.3s ease',
-          }}
+          className="dashboard-main"
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}
         >
           <Navbar />
           <main
             style={{
               flex: 1,
-              marginTop: 64,
-              padding: '32px',
+              padding: 'clamp(16px, 4vw, 32px)',
               maxWidth: '100%',
+              overflowX: 'hidden'
             }}
           >
             {children}

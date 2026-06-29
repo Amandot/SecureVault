@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, Upload, X, Check } from 'lucide-react';
+import { Search, Bell, Upload, X, Check, Menu } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsApi } from '../../lib/api';
+import { useEffect } from 'react';
 
 const notificationIcons: Record<string, string> = {
   view: '👁️',
@@ -43,13 +44,23 @@ export default function Navbar() {
     }
   };
 
+  useEffect(() => {
+    const handleToggle = () => {
+      document.getElementById('mobile-sidebar')?.classList.toggle('mobile-sidebar-open');
+      document.getElementById('mobile-sidebar')?.classList.toggle('mobile-sidebar-closed');
+    };
+    
+    document.getElementById('mobile-menu-btn')?.addEventListener('click', handleToggle);
+    return () => document.getElementById('mobile-menu-btn')?.removeEventListener('click', handleToggle);
+  }, []);
+
   return (
     <header
+      className="navbar-header"
       style={{
-        position: 'fixed',
+        position: 'sticky',
         top: 0,
-        right: 0,
-        left: 260,
+        width: '100%',
         height: 64,
         background: 'rgba(7, 17, 31, 0.9)',
         backdropFilter: 'blur(20px)',
@@ -58,12 +69,27 @@ export default function Navbar() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 28px',
+        padding: '0 clamp(16px, 4vw, 28px)',
         gap: 16,
       }}
     >
-      {/* ─── Search ──────────────────────────────────────────────────────── */}
-      <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 480 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+        <button
+          id="mobile-menu-btn"
+          className="mobile-only-btn"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            display: 'none', // Hidden by default, shown via CSS media query
+            padding: 4,
+          }}
+        >
+          <Menu size={24} />
+        </button>
+        {/* ─── Search ──────────────────────────────────────────────────────── */}
+        <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 480 }}>
         <div style={{ position: 'relative' }}>
           <Search
             size={16}
@@ -86,6 +112,7 @@ export default function Navbar() {
           />
         </div>
       </form>
+      </div>
 
       {/* ─── Right Actions ────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

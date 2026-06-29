@@ -25,6 +25,7 @@ import { filesApi } from '../../../lib/api';
 import Link from 'next/link';
 import ShareModal from '../../../components/modals/ShareModal';
 import PreviewModal from '../../../components/modals/PreviewModal';
+import { toast } from 'sonner';
 
 type SortField = 'createdAt' | 'filename' | 'size';
 type SortOrder = 'asc' | 'desc';
@@ -99,7 +100,11 @@ export default function MyFilesPage() {
     mutationFn: (id: string) => filesApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
+      toast.success('File moved to trash');
     },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete file');
+    }
   });
 
   const files: FileRecord[] = data?.files || [];
@@ -244,20 +249,28 @@ export default function MyFilesPage() {
         </div>
       ) : files.length === 0 ? (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          style={{ textAlign: 'center', padding: '80px 20px' }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-card"
+          style={{ textAlign: 'center', padding: '80px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
         >
-          <Files size={56} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
-          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-            {search ? 'No files match your search' : 'No files yet'}
+          <motion.div 
+            animate={{ y: [0, -10, 0] }} 
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <div style={{ width: 100, height: 100, margin: '0 auto 24px', borderRadius: '50%', background: 'var(--accent-dim)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Files size={48} color="var(--accent)" />
+            </div>
+          </motion.div>
+          <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.5px' }}>
+            {search ? 'No files match your search' : 'Your vault is empty'}
           </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
-            {search ? 'Try a different search term' : 'Upload your first encrypted file'}
+          <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 32, maxWidth: 300 }}>
+            {search ? 'Try adjusting your search or filters to find what you are looking for.' : 'Start securing your files by uploading them. Everything is encrypted before leaving your device.'}
           </p>
           {!search && (
-            <Link href="/dashboard/upload" className="btn-primary">
-              <Upload size={16} /> Upload File
+            <Link href="/dashboard/upload" className="btn-primary" style={{ padding: '12px 28px', fontSize: 15 }}>
+              <Upload size={18} /> Upload Your First File
             </Link>
           )}
         </motion.div>

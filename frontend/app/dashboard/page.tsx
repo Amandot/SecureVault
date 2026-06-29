@@ -201,13 +201,27 @@ export default function DashboardHome() {
           </div>
 
           {recentFiles.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <Files size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px' }} />
-              <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No files yet</p>
-              <Link href="/dashboard/upload" className="btn-primary" style={{ marginTop: 16, display: 'inline-flex', padding: '8px 18px', fontSize: 13 }}>
-                Upload your first file
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={{ textAlign: 'center', padding: '40px 0' }}
+            >
+              <motion.div 
+                animate={{ y: [0, -10, 0] }} 
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <div style={{ width: 80, height: 80, margin: '0 auto 20px', borderRadius: '50%', background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Files size={40} color="var(--accent)" />
+                </div>
+              </motion.div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Your vault is empty</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 240, margin: '0 auto 24px' }}>
+                Upload your first encrypted file to get started.
+              </p>
+              <Link href="/dashboard/upload" className="btn-primary" style={{ padding: '10px 24px' }}>
+                <Upload size={16} /> Upload File
               </Link>
-            </div>
+            </motion.div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {recentFiles.map((file: { id: string; filename: string; mimeType: string; size: string; encryptionType: string; createdAt: string }, i: number) => (
@@ -301,10 +315,24 @@ export default function DashboardHome() {
           </div>
 
           {activities.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <Clock size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px' }} />
-              <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No activity yet</p>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={{ textAlign: 'center', padding: '40px 0' }}
+            >
+              <motion.div 
+                animate={{ rotate: [0, 5, -5, 0] }} 
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <div style={{ width: 80, height: 80, margin: '0 auto 20px', borderRadius: '50%', background: 'var(--purple-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Clock size={40} color="var(--purple)" />
+                </div>
+              </motion.div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>No activity yet</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 240, margin: '0 auto' }}>
+                Your actions and file events will appear here.
+              </p>
+            </motion.div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {activities.map(

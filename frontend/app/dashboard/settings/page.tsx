@@ -7,9 +7,12 @@ import { authApi } from '../../../lib/api';
 import { User, Lock, Bell, Shield, Monitor, Key, Save, Loader2, CheckCircle } from 'lucide-react';
 import { generateKeyPair, exportPublicKey, exportPrivateKey, storePrivateKey, hasStoredPrivateKey } from '../../../lib/crypto/keyManager';
 import Image from 'next/image';
+import ThemeSelector from '../../../components/settings/ThemeSelector';
+import { Palette } from 'lucide-react';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'encryption', label: 'Encryption', icon: Lock },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Shield },
@@ -213,6 +216,13 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {/* ─── Appearance Tab ─────────────────────────────────────────────── */}
+      {activeTab === 'appearance' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <ThemeSelector />
         </motion.div>
       )}
 

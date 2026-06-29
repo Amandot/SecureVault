@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Providers from './providers';
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: {
@@ -53,6 +54,17 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>
+        <Toaster 
+          theme="dark" 
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: 'var(--card-bg)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+            }
+          }}
+        />
       </body>
     </html>
   );

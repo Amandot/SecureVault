@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { shareApi, authApi, filesApi } from '../../lib/api';
 import { importPublicKey, loadPrivateKey, rewrapAESKeyForRecipient } from '../../lib/crypto/keyManager';
+import { toast } from 'sonner';
 
 interface ShareModalProps {
   fileId: string;
@@ -36,51 +37,57 @@ export default function ShareModal({ fileId, onClose }: ShareModalProps) {
       let encryptedKeyForRecipient: string | undefined;
 
       if (recipientEmail) {
-        try {
-          const { data: recipientData } = await authApi.getUserByEmail(recipientEmail);
-          const recipientPublicKeyJwk = recipientData.user?.publicKey;
-
-          if (recipientPublicKeyJwk) {
-            if (!ownerPassphrase) {
-              throw new Error('Your master passphrase is required to wrap the encryption key for the recipient.');
+          let recipientData;
+          try {
+            const res = await authApi.getUserByEmail(recipientEmail);
+            recipientData = res.data;
+          } catch (e: any) {
+            if (e.message.toLowerCase().includes('not found') || e.message.includes('404')) {
+              throw new Error('Recipient email not found. They must sign up first.');
             }
-
-            setKeyWrapStatus('wrapping');
-
-            let ownerPrivateKey: CryptoKey | null;
-            try {
-              ownerPrivateKey = await loadPrivateKey(ownerPassphrase);
-            } catch {
-              setKeyWrapStatus('failed');
-              throw new Error('Wrong master passphrase — could not load your private key.');
-            }
-            if (!ownerPrivateKey) {
-              setKeyWrapStatus('failed');
-              throw new Error('No private key found. Please upload a file first to generate your key pair.');
-            }
-
-            const { data: fileData } = await filesApi.get(fileId);
-            const fileEncryptedKey: string = fileData.file.encryptedKey;
-
-            const recipientPublicKey = await importPublicKey(recipientPublicKeyJwk);
-
-            encryptedKeyForRecipient = await rewrapAESKeyForRecipient(
-              fileEncryptedKey,
-              ownerPrivateKey,
-              recipientPublicKey
-            );
-            setKeyWrapStatus('done');
+            throw e;
           }
+          
+          try {
+            const recipientPublicKeyJwk = recipientData.user?.publicKey;
+
+          if (!recipientPublicKeyJwk) {
+            setKeyWrapStatus('failed');
+            throw new Error('Recipient has not generated an encryption key. They must log in and generate their key pair in Settings first.');
+          }
+
+          if (!ownerPassphrase) {
+            throw new Error('Your master passphrase is required to wrap the encryption key for the recipient.');
+          }
+
+          setKeyWrapStatus('wrapping');
+
+          let ownerPrivateKey: CryptoKey | null;
+          try {
+            ownerPrivateKey = await loadPrivateKey(ownerPassphrase);
+          } catch {
+            setKeyWrapStatus('failed');
+            throw new Error('Wrong master passphrase — could not load your private key.');
+          }
+          if (!ownerPrivateKey) {
+            setKeyWrapStatus('failed');
+            throw new Error('No private key found. Please upload a file first to generate your key pair.');
+          }
+
+          const { data: fileData } = await filesApi.get(fileId);
+          const fileEncryptedKey: string = fileData.file.encryptedKey;
+
+          const recipientPublicKey = await importPublicKey(recipientPublicKeyJwk);
+
+          encryptedKeyForRecipient = await rewrapAESKeyForRecipient(
+            fileEncryptedKey,
+            ownerPrivateKey,
+            recipientPublicKey
+          );
+          setKeyWrapStatus('done');
         } catch (err: any) {
           setKeyWrapStatus('failed');
-          if (
-            err.message.includes('master passphrase') ||
-            err.message.includes('private key') ||
-            err.message.includes('Wrong')
-          ) {
-            throw err;
-          }
-          console.warn('Key wrapping skipped:', err.message);
+          throw err;
         }
       }
 
@@ -101,6 +108,7 @@ export default function ShareModal({ fileId, onClose }: ShareModalProps) {
     onSuccess: (data) => {
       setGeneratedLink(data.shareLink);
       queryClient.invalidateQueries({ queryKey: ['files'] });
+      toast.success('Share link successfully created!');
     },
   });
 
