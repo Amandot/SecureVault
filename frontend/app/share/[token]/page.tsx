@@ -471,7 +471,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
             shareId={shareData.share.id}
             onClose={() => setShowAccessModal(false)}
             currentPermissions={{
-              canDownload: canActuallyDownload,
+              canDownload: !!canActuallyDownload,
               canEdit: shareData.share.canEdit,
             }}
           />
