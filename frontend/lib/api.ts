@@ -169,3 +169,18 @@ export const notificationsApi = {
   readAll: () => api.patch('/notifications/read-all'),
   read: (id: string) => api.patch(`/notifications/${id}/read`),
 };
+// ─── Access Requests API ────────────────────────────────────────────────────────
+export const accessRequestsApi = {
+  list: () => api.get('/access-requests'),
+  create: (data: {
+    fileId: string;
+    shareId?: string | null;
+    message?: string;
+    requestedDownload?: boolean;
+    requestedEdit?: boolean;
+    requestedExpiresAt?: string | null;
+    requestedMaxViews?: number | null;
+  }) => api.post('/access-requests', data),
+  approve: (id: string) => api.patch(`/access-requests/${id}/approve`),
+  reject: (id: string) => api.patch(`/access-requests/${id}/reject`),
+};

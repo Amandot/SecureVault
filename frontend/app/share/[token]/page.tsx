@@ -13,6 +13,8 @@ import { loadPrivateKey } from '../../../lib/crypto/keyManager';
 import type { EncryptionAlgorithm } from '../../../lib/crypto/chacha';
 import WatermarkOverlay, { type WatermarkConfig } from '../../../components/WatermarkOverlay';
 import SecurePdfViewer from '../../../components/viewer/SecurePdfViewer';
+import { useAuth } from '../../../lib/auth/AuthContext';
+import AccessRequestModal from '../../../components/modals/AccessRequestModal';
 
 interface ShareData {
   share: {
@@ -82,6 +84,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   // Track viewer identity (will be populated once they enter passphrase)
   const [viewerName, setViewerName] = useState('');
   const [viewerEmail, setViewerEmail] = useState('');
+  
+  const [showAccessModal, setShowAccessModal] = useState(false);
+  const { appUser } = useAuth();
 
   useEffect(() => {
     shareApi.resolve(token)
@@ -398,6 +403,11 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
               {copied ? <Check size={15} /> : <Copy size={15} />}
               {copied ? 'Copied!' : 'Copy Share Link'}
             </button>
+            {appUser && (
+              <button onClick={() => setShowAccessModal(true)} className="btn-ghost" style={{ width: '100%' }}>
+                Request More Access
+              </button>
+            )}
           </div>
         </motion.div>
       )}
@@ -438,6 +448,11 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                 <Download size={14} /> Download
               </a>
             )}
+            {appUser && (
+              <button onClick={() => setShowAccessModal(true)} className="btn-secondary" style={{ padding: '8px 18px', fontSize: 13 }}>
+                Request Access
+              </button>
+            )}
           </div>
 
           {/* Preview content */}
@@ -448,6 +463,20 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
+      <AnimatePresence>
+        {showAccessModal && shareData && (
+          <AccessRequestModal
+            fileId={shareData.file.id}
+            shareId={shareData.share.id}
+            onClose={() => setShowAccessModal(false)}
+            currentPermissions={{
+              canDownload: canActuallyDownload,
+              canEdit: shareData.share.canEdit,
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

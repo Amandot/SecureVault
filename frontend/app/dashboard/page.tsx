@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { filesApi, activityApi } from '../../lib/api';
+import { filesApi, activityApi, accessRequestsApi } from '../../lib/api';
 import {
   Files,
   Share2,
@@ -15,6 +15,7 @@ import {
   Download,
   Trash2,
   TrendingUp,
+  Inbox,
 } from 'lucide-react';
 import Link from 'next/link';
 import { fadeUp } from '@/lib/motion';
@@ -48,8 +49,14 @@ export default function DashboardHome() {
     queryFn: () => activityApi.list({ limit: 8 }).then((r) => r.data),
   });
 
+  const { data: requestsData } = useQuery({
+    queryKey: ['access-requests'],
+    queryFn: () => accessRequestsApi.list().then((r) => r.data),
+  });
+
   const files = filesData?.files || [];
   const activities = activityData?.activities || [];
+  const pendingRequests = requestsData?.incoming?.filter((r: any) => r.status === 'pending').length || 0;
 
   // Calculate stats
   const totalSize = files.reduce(
@@ -86,10 +93,10 @@ export default function DashboardHome() {
       color: 'var(--purple)',
     },
     {
-      icon: Shield,
-      label: 'Encryption',
-      value: '100%',
-      sub: 'E2E encrypted',
+      icon: Inbox,
+      label: 'Access Requests',
+      value: pendingRequests,
+      sub: 'pending review',
       color: 'var(--warning)',
     },
   ];

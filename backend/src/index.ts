@@ -12,6 +12,7 @@ import shareRoutes from './routes/share';
 import activityRoutes from './routes/activity';
 import folderRoutes from './routes/folders';
 import notificationRoutes from './routes/notifications';
+import accessRequestRoutes from './routes/accessRequests';
 import { errorHandler } from './middleware/errorHandler';
 
 // Patch BigInt serialization for JSON
@@ -85,6 +86,7 @@ app.use('/api/share', shareRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/access-requests', accessRequestRoutes);
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
 app.use((_req, res) => {

@@ -141,6 +141,7 @@ model Share {
 
   file  File @relation(fields: [fileId], references: [id], onDelete: Cascade)
   owner User @relation("ShareOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  accessRequests AccessRequest[]
 
   @@map("shares")
 }
@@ -185,16 +186,24 @@ model Notification {
 // ACCESS REQUEST MODEL
 // ============================================================
 model AccessRequest {
-  id          String   @id @default(cuid())
-  fileId      String
-  requesterId String
-  message     String?
-  status      String   @default("pending") // "pending" | "approved" | "rejected"
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(cuid())
+  fileId            String
+  requesterId       String
+  shareId           String?
+  message           String?
+  status            String   @default("pending") // "pending" | "approved" | "rejected"
+  
+  requestedDownload Boolean  @default(false)
+  requestedEdit     Boolean  @default(false)
+  requestedExpiresAt DateTime?
+  requestedMaxViews Int?
 
-  file      File @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  requester User @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  file      File  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  requester User  @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  share     Share? @relation(fields: [shareId], references: [id], onDelete: Cascade)
 
   @@map("access_requests")
 }
