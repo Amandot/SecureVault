@@ -78,6 +78,7 @@ model File {
   // Owner controls
   watermarkEnabled   Boolean  @default(false)
   downloadDisabled   Boolean  @default(false)
+  isFavorite         Boolean  @default(false)
 
   // Watermark configuration
   watermarkFields    String   @default("[]")       // JSON array of field keys

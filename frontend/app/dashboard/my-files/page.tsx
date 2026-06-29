@@ -20,6 +20,7 @@ import {
   SortDesc,
   Files,
   Upload,
+  Star,
 } from 'lucide-react';
 import { filesApi } from '../../../lib/api';
 import Link from 'next/link';
@@ -41,6 +42,7 @@ interface FileRecord {
   watermarkEnabled: boolean;
   downloadDisabled: boolean;
   createdAt: string;
+  isFavorite: boolean;
   _count?: { shares: number };
 }
 
@@ -105,6 +107,14 @@ export default function MyFilesPage() {
     onError: (error: any) => {
       toast.error(error.message || 'Failed to delete file');
     }
+  });
+
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: (file: FileRecord) => filesApi.update(file.id, { isFavorite: !file.isFavorite }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+    },
+    onError: () => toast.error('Failed to update favorite status'),
   });
 
   const files: FileRecord[] = data?.files || [];
@@ -334,6 +344,25 @@ export default function MyFilesPage() {
               {/* Actions */}
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
+                  id={`favorite-${file.id}`}
+                  title={file.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                  onClick={() => toggleFavoriteMutation.mutate(file)}
+                  style={{
+                    flex: 1,
+                    padding: '7px',
+                    background: file.isFavorite ? 'var(--warning-dim)' : 'var(--card-bg)',
+                    border: file.isFavorite ? '1px solid rgba(245,158,11,0.2)' : '1px solid var(--border)',
+                    borderRadius: 8,
+                    color: file.isFavorite ? 'var(--warning)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Star size={14} fill={file.isFavorite ? "currentColor" : "none"} />
+                </button>
+                <button
                   id={`preview-${file.id}`}
                   title="Preview"
                   onClick={() => setPreviewFileId(file.id)}
@@ -469,6 +498,15 @@ export default function MyFilesPage() {
                 {new Date(file.createdAt).toLocaleDateString()}
               </span>
               <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  id={`list-favorite-${file.id}`}
+                  onClick={() => toggleFavoriteMutation.mutate(file)}
+                  className="btn-ghost"
+                  style={{ padding: '6px', borderRadius: 6, color: file.isFavorite ? 'var(--warning)' : 'var(--text-muted)' }}
+                  title={file.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                >
+                  <Star size={15} fill={file.isFavorite ? "currentColor" : "none"} />
+                </button>
                 <button
                   id={`list-preview-${file.id}`}
                   onClick={() => setPreviewFileId(file.id)}

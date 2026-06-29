@@ -16,13 +16,14 @@ const router = Router();
 // Get all files owned by the authenticated user
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
-    const { folderId, search, sort = 'createdAt', order = 'desc' } = req.query;
+    const { folderId, search, sort = 'createdAt', order = 'desc', favorite } = req.query;
 
     const files = await prisma.file.findMany({
       where: {
         ownerId: req.user!.id,
         isDeleted: false,
-        folderId: folderId ? String(folderId) : null,
+        ...(folderId ? { folderId: String(folderId) } : {}),
+        ...(favorite === 'true' && { isFavorite: true }),
         ...(search && {
           filename: { contains: String(search), mode: 'insensitive' },
         }),
@@ -240,6 +241,7 @@ const updateFileSchema = z.object({
   watermarkRotation: z.number().int().optional(),
   watermarkPlacement: z.string().optional(),
   watermarkColor: z.string().optional(),
+  isFavorite: z.boolean().optional(),
 });
 
 router.patch('/:id', authenticate, async (req: Request, res: Response) => {

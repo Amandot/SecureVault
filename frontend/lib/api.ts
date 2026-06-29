@@ -50,6 +50,7 @@ export const filesApi = {
     search?: string;
     sort?: string;
     order?: string;
+    favorite?: boolean | string;
   }) => api.get('/files', { params }),
   upload: (data: {
     encryptedFile: Blob;
@@ -116,6 +117,7 @@ export const filesApi = {
       watermarkRotation?: number;
       watermarkPlacement?: string;
       watermarkColor?: string;
+      isFavorite?: boolean;
     }
   ) => api.patch(`/files/${id}`, data),
   delete: (id: string, permanent?: boolean) =>
