@@ -44,6 +44,9 @@ app.use(
   })
 );
 
+// Trust the first proxy (e.g., Render, Heroku, Vercel, Nginx) so rate limits use the correct client IP.
+app.set('trust proxy', 1);
+
 // ─── Rate Limiting ──────────────────────────────────────────────────────────
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -56,7 +59,7 @@ app.use(limiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 100, // Increased to allow fetching /me and /user/:email during normal usage
   message: { error: 'Too many authentication attempts.' },
 });
 
