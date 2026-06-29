@@ -64,6 +64,7 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
 
       const layers = fileMeta.encryptionLayers?.map((layer: any, index: number) => ({
         ...layer,
+        nonce: layer.iv,
         passphrase: layerPassphrases[index],
       })) || [];
 
