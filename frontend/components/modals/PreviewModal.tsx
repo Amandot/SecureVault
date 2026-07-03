@@ -1,10 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Eye, Loader2, Lock, AlertCircle, Download } from 'lucide-react';
+import { X, Eye, Loader2, Lock, AlertCircle, Download, KeyRound } from 'lucide-react';
 import { filesApi } from '../../lib/api';
 import { decryptFile, downloadEncryptedFile } from '../../lib/crypto/fileEncryptor';
-import { loadPrivateKey } from '../../lib/crypto/keyManager';
+import { loadPrivateKey, hasStoredPrivateKey, getPrivateKeyDiagnostics, verifyPrivateKeyForAccount } from '../../lib/crypto/keyManager';
 import { useAuth } from '../../lib/auth/AuthContext';
 import ModalPortal from './ModalPortal';
 import WatermarkOverlay, { type WatermarkConfig } from '../WatermarkOverlay';
@@ -25,8 +25,13 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
   const [layerPassphrases, setLayerPassphrases] = useState<string[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [decryptedPdfBuffer, setDecryptedPdfBuffer] = useState<ArrayBuffer | Uint8Array | null>(null);
+  // True when localStorage has no stored private key (key backup needed)
+  const [keyMissing, setKeyMissing] = useState(false);
 
   useEffect(() => {
+    // Check immediately whether a private key exists in this browser
+    setKeyMissing(!hasStoredPrivateKey());
+
     filesApi.get(fileId)
       .then(res => {
         setFileMeta(res.data.file);
@@ -49,15 +54,61 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
     setStep('decrypting');
     setError('');
 
+    // Dev-mode: log safe diagnostics (no key material exposed)
+    if (process.env.NODE_ENV === 'development') {
+      const diag = getPrivateKeyDiagnostics();
+      console.group('[SecureVault] Decryption diagnostics');
+      console.log('File ID:', fileId);
+      console.log('User:', appUser?.email);
+      console.log('File:', fileMeta?.filename);
+      console.log('MIME:', fileMeta?.mimeType);
+      console.log('encryptedKey present:', !!fileMeta?.encryptedKey);
+      console.log('iv present:', !!fileMeta?.iv);
+      console.log('Private key bundle:', diag);
+      console.groupEnd();
+    }
+
     try {
+      // Step 1: Check whether any key bundle exists before attempting PBKDF2
+      if (!hasStoredPrivateKey()) {
+        setKeyMissing(true);
+        throw new Error(
+          'Your private key was not found in this browser. ' +
+          'Please import your key backup file (.json) from Settings → Security Keys, then try again.'
+        );
+      }
+      setKeyMissing(false);
+
+      // Step 2: Derive the decryption key from the passphrase + stored salt.
+      // loadPrivateKey now throws a plain Error with a readable message on wrong passphrase.
       let privateKey: CryptoKey | null;
       try {
         privateKey = await loadPrivateKey(masterPassphrase);
-      } catch {
-        throw new Error('Wrong master passphrase — decryption failed. Please try again.');
+      } catch (err: any) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[SecureVault] loadPrivateKey threw:', err.message);
+        }
+        // Re-throw as-is — loadPrivateKey message is already user-friendly
+        throw err;
       }
+
+      // Defensive null guard (loadPrivateKey returns null only when key is absent, not on wrong passphrase)
       if (!privateKey) {
-        throw new Error('No private key found. Please re-upload the file first.');
+        setKeyMissing(true);
+        throw new Error(
+          'Private key could not be loaded. The key bundle may be corrupt — ' +
+          'please restore from your key backup file in Settings → Security Keys.'
+        );
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SecureVault] Private key loaded successfully. Verifying key pair...');
+      }
+
+      await verifyPrivateKeyForAccount(privateKey, appUser?.publicKey);
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SecureVault] Key pair verified. Downloading encrypted file...');
       }
 
       const encryptedBuffer = await downloadEncryptedFile(downloadUrl);
@@ -75,15 +126,29 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
         layers,
       });
 
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SecureVault] File decrypted successfully. Bytes:', decryptedBuffer.byteLength);
+      }
+
       if (fileMeta.mimeType === 'application/pdf') {
-        setDecryptedPdfBuffer(decryptedBuffer); 
+        setDecryptedPdfBuffer(decryptedBuffer);
       } else {
         const blob = new Blob([decryptedBuffer], { type: fileMeta.mimeType });
         setPreviewUrl(URL.createObjectURL(blob));
       }
       setStep('preview');
     } catch (err: any) {
-      setError(err.message || 'Decryption failed. Check your passphrases.');
+      // DOMException.message is "" in Web Crypto — fall back to .name for the dev log
+      const devMsg = err?.message || err?.name || String(err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[SecureVault] Decryption failed:', devMsg, err);
+      }
+      // Prefer the error's message; for bare DOMException use name; final fallback for UI
+      const userMsg =
+        err?.message ||
+        (err instanceof DOMException ? `Crypto error: ${err.name}` : null) ||
+        'Decryption failed. Check your passphrases and try again.';
+      setError(userMsg);
       setStep('passphrase');
     }
   };
@@ -216,6 +281,23 @@ export default function PreviewModal({ fileId, onClose }: PreviewModalProps) {
 
         {step === 'passphrase' && fileMeta && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {/* ── Key missing warning ── */}
+            {keyMissing && (
+              <div style={{ marginBottom: 16, padding: '12px 14px', background: 'rgba(245,158,11,0.1)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <KeyRound size={15} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning)', marginBottom: 4 }}>Private Key Not Found in This Browser</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                    Your encrypted private key is not stored in this browser&apos;s local storage — it may have been cleared,
+                    or you may be using a different device.{' '}
+                    <strong style={{ color: 'var(--text-primary)' }}>
+                      Go to Settings → Security Keys and import your backup file (.json), then try again.
+                    </strong>
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div style={{ marginBottom: 20, padding: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <Lock size={14} color="var(--accent)" />

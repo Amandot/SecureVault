@@ -1,11 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../../lib/auth/AuthContext';
 import { authApi } from '../../../lib/api';
-import { User, Lock, Bell, Shield, Monitor, Key, Save, Loader2, CheckCircle } from 'lucide-react';
-import { generateKeyPair, exportPublicKey, exportPrivateKey, storePrivateKey, hasStoredPrivateKey } from '../../../lib/crypto/keyManager';
+import { User, Lock, Bell, Shield, Monitor, Key, Save, Loader2, CheckCircle, Download, Upload, AlertTriangle } from 'lucide-react';
+import {
+  generateKeyPair,
+  exportPublicKey,
+  exportPrivateKey,
+  storePrivateKey,
+  hasStoredPrivateKey,
+  downloadKeyBackup,
+  importEncryptedKeyBundle,
+} from '../../../lib/crypto/keyManager';
 import Image from 'next/image';
 import ThemeSelector from '../../../components/settings/ThemeSelector';
 import { Palette } from 'lucide-react';
@@ -27,6 +35,14 @@ export default function SettingsPage() {
   const [keyPassphrase, setKeyPassphrase] = useState('');
   const [generatingKeys, setGeneratingKeys] = useState(false);
   const [keyGenDone, setKeyGenDone] = useState(false);
+  // Key backup/restore state
+  const [keyPresent, setKeyPresent] = useState(hasStoredPrivateKey());
+  const [backupDownloaded, setBackupDownloaded] = useState(false);
+  const [restorePassphrase, setRestorePassphrase] = useState('');
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState('');
+  const [restoreDone, setRestoreDone] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const saveProfile = async () => {
     setSaving(true);
@@ -50,15 +66,39 @@ export default function SettingsPage() {
       const keyPair = await generateKeyPair();
       const publicKeyJwk = await exportPublicKey(keyPair.publicKey);
       const pkcs8 = await exportPrivateKey(keyPair.privateKey);
-      await storePrivateKey(pkcs8, keyPassphrase);
+      await storePrivateKey(pkcs8, keyPassphrase, publicKeyJwk);
       await authApi.updatePublicKey(publicKeyJwk);
       await refreshAppUser();
+      setKeyPresent(true);
       setKeyGenDone(true);
       setTimeout(() => setKeyGenDone(false), 3000);
     } catch (err) {
       alert('Failed to generate keys: ' + (err instanceof Error ? err.message : err));
     } finally {
       setGeneratingKeys(false);
+    }
+  };
+
+  const handleRestoreKey = async (file: File) => {
+    if (!restorePassphrase) {
+      setRestoreError('Enter your master passphrase first.');
+      return;
+    }
+    setRestoring(true);
+    setRestoreError('');
+    setRestoreDone(false);
+    try {
+      const text = await file.text();
+      await importEncryptedKeyBundle(text, restorePassphrase);
+      setKeyPresent(true);
+      setRestoreDone(true);
+      setTimeout(() => setRestoreDone(false), 4000);
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Failed to restore key backup.');
+    } finally {
+      setRestoring(false);
+      // Reset file input so the same file can be re-selected if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -319,13 +359,105 @@ export default function SettingsPage() {
               gap: 12,
               fontSize: 13,
               color: 'var(--text-secondary)',
+              marginBottom: 20,
             }}
           >
             <Monitor size={16} color="var(--text-muted)" />
             Private key stored:{' '}
-            <span style={{ color: hasStoredPrivateKey() ? 'var(--green)' : 'var(--warning)', fontWeight: 600 }}>
-              {hasStoredPrivateKey() ? 'Yes (in localStorage, encrypted)' : 'Not found — upload may fail'}
+            <span style={{ color: keyPresent ? 'var(--green)' : 'var(--warning)', fontWeight: 600 }}>
+              {keyPresent ? 'Yes (in localStorage, encrypted)' : 'Not found — upload may fail'}
             </span>
+          </div>
+
+          {/* ── Key Backup / Restore ──────────────────────────────────────── */}
+          <div className="glass-card" style={{ padding: 28 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Key size={18} color="var(--warning)" /> Security Keys — Backup & Restore
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24, lineHeight: 1.7 }}>
+              Your private key is stored only in <strong>this browser's localStorage</strong>. If you clear browser data,
+              switch browsers, or use a new device, you will need your backup file to decrypt existing files.
+              The backup is encrypted with your master passphrase — it's safe to store.
+            </p>
+
+            {/* Download backup */}
+            <div style={{ marginBottom: 24, padding: '16px 20px', background: 'rgba(0,200,255,0.04)', border: '1px solid rgba(0,200,255,0.15)', borderRadius: 12 }}>
+              <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Download Key Backup</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
+                Save your encrypted private key as a <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 4, fontSize: 12 }}>.json</code> file.
+                Store it somewhere safe (password manager, encrypted drive). You'll need it if you ever clear browser data or switch devices.
+              </p>
+              {!keyPresent && (
+                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8 }}>
+                  <AlertTriangle size={14} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+                    No key found in this browser. Generate a key pair above, or restore from a backup below.
+                  </p>
+                </div>
+              )}
+              <button
+                id="download-key-backup-btn"
+                onClick={() => { downloadKeyBackup(); setBackupDownloaded(true); }}
+                disabled={!keyPresent}
+                className="btn-primary"
+                style={{ opacity: keyPresent ? 1 : 0.4 }}
+              >
+                {backupDownloaded ? <><CheckCircle size={15} /> Downloaded!</> : <><Download size={15} /> Download Encrypted Backup</>}
+              </button>
+            </div>
+
+            {/* Restore backup */}
+            <div style={{ padding: '16px 20px', background: 'rgba(0,227,155,0.04)', border: '1px solid rgba(0,227,155,0.15)', borderRadius: 12 }}>
+              <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Restore Key from Backup</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
+                Upload your backup file and enter the master passphrase you used when the key was created.
+              </p>
+
+              {restoreError && (
+                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8 }}>
+                  <AlertTriangle size={14} color="var(--danger)" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <p style={{ fontSize: 12, color: 'var(--danger)', margin: 0 }}>{restoreError}</p>
+                </div>
+              )}
+              {restoreDone && (
+                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'rgba(0,227,155,0.08)', border: '1px solid rgba(0,227,155,0.25)', borderRadius: 8 }}>
+                  <CheckCircle size={14} color="var(--green)" />
+                  <p style={{ fontSize: 12, color: 'var(--green)', margin: 0 }}>Key restored successfully! You can now decrypt your files.</p>
+                </div>
+              )}
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Master Passphrase (for the backup)</label>
+                <input
+                  id="restore-passphrase-input"
+                  type="password"
+                  value={restorePassphrase}
+                  onChange={(e) => setRestorePassphrase(e.target.value)}
+                  placeholder="Enter your master passphrase"
+                  className="input-field"
+                />
+              </div>
+              <input
+                ref={fileInputRef}
+                id="restore-key-file-input"
+                type="file"
+                accept=".json,application/json"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleRestoreKey(f);
+                }}
+              />
+              <button
+                id="restore-key-backup-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={restoring || !restorePassphrase}
+                className="btn-secondary"
+                style={{ opacity: restorePassphrase ? 1 : 0.4 }}
+              >
+                {restoring ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <><Upload size={15} /> Select Backup File (.json)</>}
+              </button>
+            </div>
           </div>
         </motion.div>
       )}

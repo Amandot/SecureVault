@@ -98,6 +98,21 @@ export const encryptFile = async (
 // ─── Decrypt ─────────────────────────────────────────────────────────────────
 
 /**
+ * Normalise a crypto error: Web Crypto DOMExceptions always have an empty
+ * .message string, so we surface .name instead for meaningful logging.
+ */
+const cryptoErrorMessage = (err: unknown, context: string): string => {
+  if (err instanceof DOMException) {
+    // e.g. "OperationError", "InvalidAccessError"
+    return `${context}: ${err.name}${
+      err.message ? ` — ${err.message}` : ''
+    }. Check that your passphrase is correct and the file was not corrupted.`;
+  }
+  if (err instanceof Error) return err.message;
+  return `${context}: unknown error`;
+};
+
+/**
  * Full decryption pipeline (reverse of encryption):
  * Download → AES-256-GCM decrypt → [ChaCha20?] → [XChaCha20?] → Plaintext
  */
@@ -106,25 +121,51 @@ export const decryptFile = async (
   options: DecryptionOptions
 ): Promise<ArrayBuffer> => {
   // Step 1: Unwrap the AES key using RSA private key
-  const aesKey = await unwrapAESKey(options.encryptedKeyBase64, options.rsaPrivateKey);
+  let aesKey: CryptoKey;
+  try {
+    aesKey = await unwrapAESKey(options.encryptedKeyBase64, options.rsaPrivateKey);
+  } catch (err) {
+    throw new Error(
+      cryptoErrorMessage(
+        err,
+        'RSA key unwrap failed — this file was encrypted with a different key pair than your current private key'
+      ) +
+        ' If you recently regenerated keys, older files cannot be recovered. Otherwise, restore your key backup from Settings → Security Keys.'
+    );
+  }
 
-  // Step 2: Get raw key for decryptFileAES (it needs raw bytes)
+  // Step 2: Export raw AES key bytes
   const rawKey = await crypto.subtle.exportKey('raw', aesKey);
 
   // Step 3: Decrypt AES-256-GCM (innermost layer)
   const iv = base64ToUint8Array(options.ivBase64);
-  let decrypted = await decryptFileAES(encryptedBuffer, rawKey, iv);
+  let decrypted: ArrayBuffer;
+  try {
+    decrypted = await decryptFileAES(encryptedBuffer, rawKey, iv);
+  } catch (err) {
+    throw new Error(
+      cryptoErrorMessage(
+        err,
+        'AES-256-GCM decryption failed — the file data may be corrupt or the IV is mismatched'
+      )
+    );
+  }
 
   // Step 4: Remove extra layers in reverse order (outermost first)
   if (options.layers && options.layers.length > 0) {
-    const sortedLayers = [...options.layers].sort((a, b) => b.order - a.order);
-    const decryptedLayers = removeExtraLayers(new Uint8Array(decrypted), sortedLayers);
-    decrypted = toArrayBuffer(decryptedLayers);
+    try {
+      const sortedLayers = [...options.layers].sort((a, b) => b.order - a.order);
+      const decryptedLayers = removeExtraLayers(new Uint8Array(decrypted), sortedLayers);
+      decrypted = toArrayBuffer(decryptedLayers);
+    } catch (err) {
+      throw new Error(
+        cryptoErrorMessage(err, 'Extra layer decryption failed — check the layer passphrases')
+      );
+    }
   }
 
   return decrypted;
 };
-
 
 
 // ─── Download ────────────────────────────────────────────────────────────────

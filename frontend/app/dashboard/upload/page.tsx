@@ -21,7 +21,15 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { filesApi } from '../../../lib/api';
 import { encryptFile, getPassphraseStrength } from '../../../lib/crypto/fileEncryptor';
-import { generateKeyPair, exportPublicKey, storePrivateKey, hasStoredPrivateKey } from '../../../lib/crypto/keyManager';
+import {
+  generateKeyPair,
+  exportPublicKey,
+  storePrivateKey,
+  hasStoredPrivateKey,
+  downloadKeyBackup,
+  getPrivateKeyDiagnostics,
+  resolveEncryptionKeyPair,
+} from '../../../lib/crypto/keyManager';
 import { useAuth } from '../../../lib/auth/AuthContext';
 import { authApi } from '../../../lib/api';
 import { useRouter } from 'next/navigation';
@@ -224,6 +232,8 @@ export default function UploadPage() {
   const [layers, setLayers] = useState<LayerConfig[]>([]);
   const [masterPassphrase, setMasterPassphrase] = useState('');
   const [status, setStatus] = useState<UploadStatus>({ phase: 'idle', progress: 0, message: '' });
+  // True after a new key pair is generated — prompts user to save backup
+  const [showBackupPrompt, setShowBackupPrompt] = useState(false);
 
   // Access controls
   const [watermarkEnabled, setWatermarkEnabled] = useState(false);
@@ -253,37 +263,73 @@ export default function UploadPage() {
     if (!selectedFile || !appUser) return;
     try {
       setStatus({ phase: 'encrypting', progress: 10, message: 'Preparing encryption keys...' });
-      let privateKey: CryptoKey;
 
-      if (!hasStoredPrivateKey() || !appUser.publicKey) {
+      if (!hasStoredPrivateKey() && appUser.publicKey) {
+        setStatus({
+          phase: 'error',
+          progress: 0,
+          message:
+            'Private key missing on this device. Please import your key backup in Settings before uploading.',
+        });
+        return;
+      }
+
+      let rsaPublicKey: CryptoKey;
+
+      if (!hasStoredPrivateKey()) {
         if (!masterPassphrase) {
-          setStatus({ phase: 'error', progress: 0, message: 'A master passphrase is required to protect your private key.' });
+          setStatus({
+            phase: 'error',
+            progress: 0,
+            message: 'A master passphrase is required to protect your private key.',
+          });
           return;
         }
         setStatus({ phase: 'encrypting', progress: 15, message: 'Generating RSA key pair...' });
         const keyPair = await generateKeyPair();
-        privateKey = keyPair.privateKey;
         const publicKeyJwk = await exportPublicKey(keyPair.publicKey);
         const { exportPrivateKey } = await import('../../../lib/crypto/keyManager');
-        const pkcs8 = await exportPrivateKey(privateKey);
-        await storePrivateKey(pkcs8, masterPassphrase);
+        const pkcs8 = await exportPrivateKey(keyPair.privateKey);
+        await storePrivateKey(pkcs8, masterPassphrase, publicKeyJwk);
         await authApi.updatePublicKey(publicKeyJwk);
         await refreshAppUser();
-        const { importPublicKey } = await import('../../../lib/crypto/keyManager');
-        const publicKey = await importPublicKey(publicKeyJwk);
-        setStatus({ phase: 'encrypting', progress: 30, message: 'Encrypting file with AES-256-GCM...' });
-        const encResult = await encryptFile(selectedFile, { rsaPublicKey: publicKey, extraLayers: layers.filter(l => l.passphrase) });
-        await doUpload(encResult);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[SecureVault] New key pair generated. Diagnostics:', getPrivateKeyDiagnostics());
+        }
+        rsaPublicKey = keyPair.publicKey;
       } else {
-        setStatus({ phase: 'encrypting', progress: 20, message: 'Loading public key...' });
-        const { importPublicKey } = await import('../../../lib/crypto/keyManager');
-        const publicKey = await importPublicKey(appUser.publicKey);
-        setStatus({ phase: 'encrypting', progress: 30, message: 'Encrypting file...' });
-        const encResult = await encryptFile(selectedFile, { rsaPublicKey: publicKey, extraLayers: layers.filter(l => l.passphrase) });
-        await doUpload(encResult);
+        if (!masterPassphrase) {
+          setStatus({
+            phase: 'error',
+            progress: 0,
+            message: 'Enter your master passphrase to encrypt with your key pair.',
+          });
+          return;
+        }
+        setStatus({ phase: 'encrypting', progress: 20, message: 'Unlocking your key pair...' });
+        const { publicKey, publicKeyJwk } = await resolveEncryptionKeyPair(
+          masterPassphrase,
+          appUser.publicKey
+        );
+        rsaPublicKey = publicKey;
+        if (appUser.publicKey !== publicKeyJwk) {
+          await authApi.updatePublicKey(publicKeyJwk);
+          await refreshAppUser();
+        }
       }
+
+      setStatus({ phase: 'encrypting', progress: 30, message: 'Encrypting file with AES-256-GCM...' });
+      const encResult = await encryptFile(selectedFile, {
+        rsaPublicKey,
+        extraLayers: layers.filter((l) => l.passphrase),
+      });
+      await doUpload(encResult);
     } catch (err: unknown) {
-      setStatus({ phase: 'error', progress: 0, message: err instanceof Error ? err.message : 'Encryption failed' });
+      setStatus({
+        phase: 'error',
+        progress: 0,
+        message: err instanceof Error ? err.message : 'Encryption failed',
+      });
     }
   };
 
@@ -426,7 +472,9 @@ export default function UploadPage() {
           <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
             Master Passphrase{' '}
             <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
-              {hasStoredPrivateKey() ? '(enter the same passphrase to decrypt after upload)' : '(required — protects your private key · remember this!)'}
+              {hasStoredPrivateKey()
+                ? '(required to unlock your key pair for encryption)'
+                : '(required — protects your private key · remember this!)'}
             </span>
           </label>
           <input id="master-passphrase-input" type="password"
@@ -589,7 +637,28 @@ export default function UploadPage() {
         </div>
       </motion.div>
 
+      {/* ─── Key Backup Prompt (shown after first key generation) ─────── */}
+      {showBackupPrompt && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="glass-card"
+          style={{ padding: '16px 20px', marginBottom: 20, borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.06)', display: 'flex', alignItems: 'flex-start', gap: 12 }}
+        >
+          <Info size={18} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--warning)', marginBottom: 4 }}>🔑 Key Backup Downloaded</p>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+              A new RSA key pair was generated. An encrypted backup file has been auto-downloaded to your computer.
+              <strong style={{ color: 'var(--text-primary)' }}> Store it somewhere safe</strong> (password manager, encrypted drive).
+              Without it, you cannot decrypt your files on other browsers or devices.
+              You can also re-download it anytime from <strong style={{ color: 'var(--accent)' }}>Settings → Encryption → Security Keys</strong>.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {/* ─── Upload Status ─────────────────────────────────────────────── */}
+
       <AnimatePresence>
         {status.phase !== 'idle' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="glass-card" style={{ padding: 24, marginBottom: 20 }}>

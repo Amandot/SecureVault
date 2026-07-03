@@ -81,6 +81,21 @@ router.post('/upload', authenticate, upload.single('encryptedFile'), async (req:
 
     const body = uploadSchema.parse(req.body);
     
+    // Check for existing file with the same name
+    const existingFile = await prisma.file.findFirst({
+      where: {
+        ownerId: req.user!.id,
+        filename: body.filename,
+        folderId: body.folderId || null,
+        isDeleted: false,
+      }
+    });
+
+    if (existingFile) {
+      res.status(409).json({ error: 'A file with this name already exists in this location.' });
+      return;
+    }
+    
     // Upload buffer to Supabase Storage
     const storagePath = await uploadEncryptedFile(req.file.buffer, body.mimeType);
 
