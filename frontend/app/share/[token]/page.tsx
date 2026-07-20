@@ -173,13 +173,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     }
   };
 
-  const handleDownload = () => {
-    if (!shareData?.downloadUrl) return;
-    const a = document.createElement('a');
-    a.href = shareData.downloadUrl;
-    a.download = shareData.file.filename;
-    a.click();
-  };
+
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(window.location.href);

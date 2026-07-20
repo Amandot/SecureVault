@@ -102,6 +102,7 @@ export const filesApi = {
     });
   },
   get: (id: string) => api.get(`/files/${id}`),
+  download: (id: string) => api.get(`/files/${id}/download`, { responseType: 'arraybuffer' }),
   update: (
     id: string,
     data: {

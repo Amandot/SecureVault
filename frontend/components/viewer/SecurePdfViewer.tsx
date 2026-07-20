@@ -123,7 +123,9 @@ export default function SecurePdfViewer({
   useEffect(() => {
     if (!pdfBuffer) return;
 
-    const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
+    // Create a copy of the buffer because PDF.js might detach/transfer the underlying ArrayBuffer
+    const bufferCopy = pdfBuffer instanceof ArrayBuffer ? pdfBuffer.slice(0) : new Uint8Array(pdfBuffer).slice().buffer;
+    const loadingTask = pdfjsLib.getDocument({ data: bufferCopy });
     
     let isMounted = true;
     loadingTask.promise.then((pdf) => {
@@ -185,6 +187,12 @@ export default function SecurePdfViewer({
   const handleDownload = () => {
     if (!canDownload || !pdfBuffer) return;
     const blob = new Blob([pdfBuffer as BlobPart], { type: 'application/pdf' });
+    
+    if (blob.size === 0) {
+      alert('Downloaded file is empty.');
+      return;
+    }
+    
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

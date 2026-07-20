@@ -27,6 +27,8 @@ import Link from 'next/link';
 import ShareModal from '../../../components/modals/ShareModal';
 import PreviewModal from '../../../components/modals/PreviewModal';
 import { toast } from 'sonner';
+import { loadPrivateKey } from '../../../lib/crypto/keyManager';
+import { decryptFile } from '../../../lib/crypto/fileEncryptor';
 
 type SortField = 'createdAt' | 'filename' | 'size';
 type SortOrder = 'asc' | 'desc';
@@ -116,6 +118,63 @@ export default function MyFilesPage() {
     },
     onError: () => toast.error('Failed to update favorite status'),
   });
+
+  const handleDownloadFile = async (file: FileRecord) => {
+    try {
+      const passphrase = prompt('Enter your master passphrase to decrypt and download:');
+      if (!passphrase) return;
+
+      toast.loading('Downloading and decrypting...', { id: 'download-toast' });
+      
+      const privateKey = await loadPrivateKey(passphrase);
+      if (!privateKey) throw new Error('Private key not found. Please restore from your key backup file.');
+
+      // Fetch the encrypted bytes from the new backend proxy endpoint
+      const response = await filesApi.download(file.id);
+      const encryptedBuffer = response.data;
+
+      // Get full file metadata including encryption layers if needed
+      const fileRes = await filesApi.get(file.id);
+      const fileMeta = fileRes.data.file;
+
+      // Ask for layer passphrases if any
+      let layers: any[] = [];
+      if (fileMeta.encryptionLayers?.length > 0) {
+        layers = fileMeta.encryptionLayers.map((layer: any) => {
+          const lp = prompt(`Enter passphrase for Layer ${layer.order} (${layer.algorithm}):`);
+          if (!lp) throw new Error('Layer passphrase required to decrypt.');
+          return { ...layer, nonce: layer.iv, passphrase: lp };
+        });
+      }
+
+      const decryptedBuffer = await decryptFile(encryptedBuffer, {
+        encryptedKeyBase64: fileMeta.encryptedKey,
+        ivBase64: fileMeta.iv,
+        rsaPrivateKey: privateKey,
+        layers,
+      });
+
+      const blob = new Blob([decryptedBuffer], { type: fileMeta.mimeType });
+      if (blob.size === 0) {
+        toast.error('Downloaded file is empty.', { id: 'download-toast' });
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileMeta.originalName || fileMeta.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      toast.success('Download complete', { id: 'download-toast' });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Decryption failed', { id: 'download-toast' });
+    }
+  };
 
   const files: FileRecord[] = data?.files || [];
 
@@ -363,6 +422,25 @@ export default function MyFilesPage() {
                   <Star size={14} fill={file.isFavorite ? "currentColor" : "none"} />
                 </button>
                 <button
+                  id={`download-${file.id}`}
+                  title="Download"
+                  onClick={() => handleDownloadFile(file)}
+                  style={{
+                    flex: 1,
+                    padding: '7px',
+                    background: 'var(--card-bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Download size={14} />
+                </button>
+                <button
                   id={`preview-${file.id}`}
                   title="Preview"
                   onClick={() => setPreviewFileId(file.id)}
@@ -506,6 +584,15 @@ export default function MyFilesPage() {
                   title={file.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
                 >
                   <Star size={15} fill={file.isFavorite ? "currentColor" : "none"} />
+                </button>
+                <button
+                  id={`list-download-${file.id}`}
+                  onClick={() => handleDownloadFile(file)}
+                  className="btn-ghost"
+                  style={{ padding: '6px', borderRadius: 6 }}
+                  title="Download"
+                >
+                  <Download size={15} />
                 </button>
                 <button
                   id={`list-preview-${file.id}`}

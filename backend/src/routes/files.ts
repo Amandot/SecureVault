@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/firebaseAuth';
-import { uploadEncryptedFile, createSignedDownloadUrl, deleteEncryptedFile } from '../services/storage';
+import { uploadEncryptedFile, createSignedDownloadUrl, deleteEncryptedFile, downloadFileBuffer } from '../services/storage';
 import multer from 'multer';
 
 const upload = multer({ 
@@ -234,8 +234,19 @@ router.get('/:id/download', authenticate, async (req: Request, res: Response) =>
       return;
     }
 
-    const downloadUrl = await createSignedDownloadUrl(file.encryptedPath);
-    res.json({ downloadUrl });
+    try {
+      const buffer = await downloadFileBuffer(file.encryptedPath);
+      
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Length', buffer.length.toString());
+      res.setHeader('Content-Disposition', `attachment; filename="encrypted_${file.id}"`);
+      
+      res.send(buffer);
+    } catch (storageError: any) {
+      console.error('Supabase download error:', storageError);
+      res.status(500).json({ error: storageError.message || 'Failed to retrieve file from storage' });
+      return;
+    }
   } catch (error) {
     console.error('GET /files/:id/download error:', error);
     res.status(500).json({ error: 'Internal server error' });

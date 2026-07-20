@@ -98,3 +98,28 @@ export const fileExists = async (storagePath: string): Promise<boolean> => {
   if (error) return false;
   return true;
 };
+
+/**
+ * Securely download a file from Supabase Storage into a Buffer.
+ * This ensures the backend handles the retrieval and can verify the file exists and is not empty.
+ */
+export const downloadFileBuffer = async (storagePath: string): Promise<Buffer> => {
+  const { data, error } = await supabase.storage.from(BUCKET).download(storagePath);
+  
+  if (error) {
+    throw new Error(`Failed to download from Supabase: ${error.message}`);
+  }
+  
+  if (!data) {
+    throw new Error('Supabase returned an empty response.');
+  }
+
+  const arrayBuffer = await data.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  if (buffer.length === 0) {
+    throw new Error('Supabase object exists but is 0 bytes.');
+  }
+
+  return buffer;
+};
