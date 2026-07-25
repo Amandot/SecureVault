@@ -138,6 +138,8 @@ export const shareApi = {
     expiresAt?: string;
     maxViews?: number;
     requireOTP?: boolean;
+    customMessage?: string;
+    notifyRecipient?: boolean;
     ipRestriction?: string;
   }) => api.post('/share', data),
   resolve: (token: string) => api.get(`/share/${token}`),

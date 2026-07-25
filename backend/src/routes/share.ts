@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/firebaseAuth';
 import { createSignedDownloadUrl } from '../services/storage';
+import { sendFileSharedEmail } from '../services/emailService';
 import { z } from 'zod';
 
 const router = Router();
@@ -19,6 +20,8 @@ const createShareSchema = z.object({
   password: z.string().optional(),
   requireOTP: z.boolean().default(false),
   ipRestriction: z.string().optional(),
+  customMessage: z.string().optional(),
+  notifyRecipient: z.boolean().default(true),
 });
 
 router.post('/', authenticate, async (req: Request, res: Response) => {
@@ -48,6 +51,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
         maxViews: body.maxViews || null,
         requireOTP: body.requireOTP,
         ipRestriction: body.ipRestriction || null,
+        customMessage: body.customMessage || null,
       },
     });
 
@@ -80,6 +84,31 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     }
 
     const shareLink = `${process.env.CORS_ORIGIN}/share/${share.token}`;
+
+    // Asynchronously send the email if requested
+    if (body.notifyRecipient && body.recipientEmail) {
+      // Fire and forget
+      sendFileSharedEmail({
+        shareId: share.id,
+        recipientEmail: body.recipientEmail,
+        senderName: req.user!.name,
+        senderEmail: req.user!.email,
+        filename: file.filename,
+        fileSize: (Number(file.size) / (1024 * 1024)).toFixed(2) + ' MB',
+        encryptionType: file.encryptionType,
+        dateShared: share.createdAt,
+        expiresAt: share.expiresAt,
+        shareLink,
+        customMessage: body.customMessage,
+        permissions: {
+          canView: share.canView,
+          canDownload: share.canDownload,
+          canEdit: share.canEdit,
+          watermarkEnabled: file.watermarkEnabled,
+        }
+      }).catch(console.error);
+    }
+
     res.json({ share, shareLink });
   } catch (error) {
     if (error instanceof z.ZodError) {

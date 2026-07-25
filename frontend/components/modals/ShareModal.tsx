@@ -28,6 +28,8 @@ export default function ShareModal({ fileId, onClose }: ShareModalProps) {
   const [expiresAt, setExpiresAt] = useState('');
   const [maxViews, setMaxViews] = useState('');
   const [requireOTP, setRequireOTP] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+  const [notifyRecipient, setNotifyRecipient] = useState(true);
   const [generatedLink, setGeneratedLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [keyWrapStatus, setKeyWrapStatus] = useState<'idle' | 'wrapping' | 'done' | 'failed'>('idle');
@@ -101,6 +103,8 @@ export default function ShareModal({ fileId, onClose }: ShareModalProps) {
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
         maxViews: maxViews ? parseInt(maxViews) : undefined,
         requireOTP,
+        customMessage: customMessage || undefined,
+        notifyRecipient,
       });
 
       return data;
@@ -154,7 +158,9 @@ export default function ShareModal({ fileId, onClose }: ShareModalProps) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <Check size={16} color="var(--green)" />
-              <span style={{ fontWeight: 600, color: 'var(--green)', fontSize: 14 }}>Share link created!</span>
+              <span style={{ fontWeight: 600, color: 'var(--green)', fontSize: 14 }}>
+                {notifyRecipient && recipientEmail ? 'Share link created & email notification queued!' : 'Share link created!'}
+              </span>
               {keyWrapStatus === 'done' && (
                 <span className="badge badge-green" style={{ marginLeft: 'auto', fontSize: 10 }}>
                   <KeyRound size={9} /> Key wrapped
@@ -306,6 +312,51 @@ export default function ShareModal({ fileId, onClose }: ShareModalProps) {
                 style={{ position: 'absolute', top: 2, width: 20, height: 20, borderRadius: '50%', background: '#fff' }} />
             </button>
           </div>
+
+          {/* ── Custom Message & Email Toggle ─────────────────────────────── */}
+          <AnimatePresence>
+            {needsPassphrase && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                style={{ overflow: 'hidden', marginTop: 24 }}
+              >
+                <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
+                  Custom Message (Optional)
+                </label>
+                <textarea 
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  placeholder="Enter a message to include in the email..."
+                  className="input-field"
+                  style={{ minHeight: 80, resize: 'vertical', fontSize: 13, marginBottom: 16 }}
+                />
+                
+                <button id="email-toggle" onClick={() => setNotifyRecipient(!notifyRecipient)} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', width: '100%',
+                  background: notifyRecipient ? 'var(--accent-dim)' : 'var(--card-bg)',
+                  border: `1px solid ${notifyRecipient ? 'rgba(0,200,255,0.25)' : 'var(--border)'}`,
+                  borderRadius: 10, transition: 'all 0.2s', cursor: 'pointer', textAlign: 'left'
+                }}>
+                  <div>
+                    <span style={{ fontSize: 13, fontWeight: 500, display: 'block', color: 'var(--text-primary)' }}>Notify recipient via email</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Send a professional email with the secure link</span>
+                  </div>
+                  <div style={{
+                    width: 44, height: 24, borderRadius: 12,
+                    background: notifyRecipient ? 'var(--accent)' : 'var(--border)',
+                    border: 'none', position: 'relative', transition: 'background 0.2s', flexShrink: 0
+                  }}>
+                    <motion.div animate={{ x: notifyRecipient ? 20 : 2 }}
+                      style={{ position: 'absolute', top: 2, width: 20, height: 20, borderRadius: '50%', background: '#fff' }} />
+                  </div>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div style={{ marginBottom: 24 }} />
 
           {/* ── Error ─────────────────────────────────────────────────────── */}
           {shareMutation.isError && (

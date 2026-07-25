@@ -139,6 +139,14 @@ model Share {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  // Email Notification Tracking
+  emailSent          Boolean   @default(false)
+  emailSentAt        DateTime?
+  openedAt           DateTime?
+  lastViewedAt       DateTime?
+  notificationStatus String?   // "pending", "sent", "failed"
+  customMessage      String?
+
   file  File @relation(fields: [fileId], references: [id], onDelete: Cascade)
   owner User @relation("ShareOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   accessRequests AccessRequest[]
