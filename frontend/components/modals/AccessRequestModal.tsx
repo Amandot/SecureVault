@@ -48,29 +48,35 @@ export default function AccessRequestModal({ fileId, shareId, onClose, currentPe
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.6)',
+        background: 'rgba(24, 43, 58, 0.35)',
         backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         zIndex: 100,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 20,
       }}
+      onClick={onClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="glass-card"
+        onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 420,
-          background: 'var(--card-bg)',
-          borderRadius: 20,
+          maxWidth: 440,
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(28px)',
+          WebkitBackdropFilter: 'blur(28px)',
+          borderRadius: 24,
+          border: '1px solid rgba(255, 255, 255, 0.9)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+          boxShadow: '0 20px 60px rgba(24, 76, 120, 0.18)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>

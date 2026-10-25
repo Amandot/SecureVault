@@ -1,10 +1,25 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../../lib/auth/AuthContext';
 import { authApi } from '../../../lib/api';
-import { User, Lock, Bell, Shield, Monitor, Key, Save, Loader2, CheckCircle, Download, Upload, AlertTriangle } from 'lucide-react';
+import {
+  User,
+  Lock,
+  Bell,
+  Shield,
+  Key,
+  Save,
+  Loader2,
+  CheckCircle,
+  Download,
+  Upload,
+  AlertTriangle,
+  Palette,
+  ShieldCheck,
+  Check,
+} from 'lucide-react';
 import {
   generateKeyPair,
   exportPublicKey,
@@ -15,13 +30,14 @@ import {
   importEncryptedKeyBundle,
 } from '../../../lib/crypto/keyManager';
 import Image from 'next/image';
+import Link from 'next/link';
 import ThemeSelector from '../../../components/settings/ThemeSelector';
-import { Palette } from 'lucide-react';
+import { toast } from 'sonner';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'encryption', label: 'Encryption', icon: Lock },
+  { id: 'encryption', label: 'Encryption & Keys', icon: Lock },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Shield },
 ];
@@ -35,6 +51,7 @@ export default function SettingsPage() {
   const [keyPassphrase, setKeyPassphrase] = useState('');
   const [generatingKeys, setGeneratingKeys] = useState(false);
   const [keyGenDone, setKeyGenDone] = useState(false);
+
   // Key backup/restore state
   const [keyPresent, setKeyPresent] = useState(hasStoredPrivateKey());
   const [backupDownloaded, setBackupDownloaded] = useState(false);
@@ -44,13 +61,21 @@ export default function SettingsPage() {
   const [restoreDone, setRestoreDone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Notification toggles
+  const [notifyShare, setNotifyShare] = useState(true);
+  const [notifyDownload, setNotifyDownload] = useState(true);
+  const [notifySecurity, setNotifySecurity] = useState(true);
+
   const saveProfile = async () => {
     setSaving(true);
     try {
       await authApi.register({ name });
       await refreshAppUser();
       setSaved(true);
+      toast.success('Profile updated successfully');
       setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save profile');
     } finally {
       setSaving(false);
     }
@@ -58,7 +83,7 @@ export default function SettingsPage() {
 
   const regenerateKeyPair = async () => {
     if (!keyPassphrase) {
-      alert('Enter a passphrase to protect your private key');
+      toast.error('Enter a passphrase to protect your private key');
       return;
     }
     setGeneratingKeys(true);
@@ -71,9 +96,10 @@ export default function SettingsPage() {
       await refreshAppUser();
       setKeyPresent(true);
       setKeyGenDone(true);
+      toast.success('RSA Key Pair generated and public key registered');
       setTimeout(() => setKeyGenDone(false), 3000);
-    } catch (err) {
-      alert('Failed to generate keys: ' + (err instanceof Error ? err.message : err));
+    } catch (err: any) {
+      toast.error('Failed to generate keys: ' + (err instanceof Error ? err.message : err));
     } finally {
       setGeneratingKeys(false);
     }
@@ -82,6 +108,7 @@ export default function SettingsPage() {
   const handleRestoreKey = async (file: File) => {
     if (!restorePassphrase) {
       setRestoreError('Enter your master passphrase first.');
+      toast.error('Enter master passphrase first');
       return;
     }
     setRestoring(true);
@@ -92,123 +119,156 @@ export default function SettingsPage() {
       await importEncryptedKeyBundle(text, restorePassphrase);
       setKeyPresent(true);
       setRestoreDone(true);
+      toast.success('Private key bundle restored successfully');
       setTimeout(() => setRestoreDone(false), 4000);
-    } catch (err) {
-      setRestoreError(err instanceof Error ? err.message : 'Failed to restore key backup.');
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : 'Failed to restore key backup.';
+      setRestoreError(msg);
+      toast.error(msg);
     } finally {
       setRestoring(false);
-      // Reset file input so the same file can be re-selected if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   return (
-    <div style={{ maxWidth: 760 }}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 6 }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* ─── Header ──────────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#718493', marginBottom: 4 }}>
+          <span>SecureVault</span>
+          <span>/</span>
+          <span style={{ color: '#0866D9', fontWeight: 600 }}>Settings</span>
+        </div>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: '#182B3A', margin: 0, letterSpacing: '-0.4px' }}>
           Settings
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>
-          Manage your account, encryption keys, and preferences
+        <p style={{ fontSize: 13, color: '#718493', margin: '3px 0 0' }}>
+          Manage your account profile, appearance, encryption keys, and security preferences
         </p>
-      </motion.div>
+      </div>
 
-      {/* Tab Bar */}
+      {/* ─── Tab Bar ──────────────────────────────────────────────────────── */}
       <div
         style={{
           display: 'flex',
-          gap: 4,
-          background: 'var(--card-bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
+          gap: 6,
+          background: 'rgba(255, 255, 255, 0.65)',
           padding: 6,
-          marginBottom: 28,
+          borderRadius: 16,
+          border: '1px solid rgba(255, 255, 255, 0.8)',
+          boxShadow: '0 2px 10px rgba(35, 94, 138, 0.04)',
+          marginBottom: 24,
+          flexWrap: 'wrap',
         }}
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               id={`settings-tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               style={{
-                flex: 1,
-                padding: '9px 14px',
-                background: activeTab === tab.id ? 'var(--accent-dim)' : 'transparent',
-                border: activeTab === tab.id ? '1px solid rgba(0,200,255,0.2)' : '1px solid transparent',
-                borderRadius: 10,
-                color: activeTab === tab.id ? 'var(--accent)' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 500,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
                 gap: 8,
-                transition: 'all 0.2s',
-                fontFamily: 'Inter, sans-serif',
+                padding: '9px 18px',
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: isActive ? '1px solid rgba(22, 131, 248, 0.3)' : '1px solid transparent',
+                background: isActive ? '#FFFFFF' : 'transparent',
+                color: isActive ? '#0866D9' : '#5E7385',
+                boxShadow: isActive ? '0 2px 8px rgba(22, 131, 248, 0.12)' : 'none',
+                transition: 'all 0.18s ease',
               }}
             >
               <Icon size={15} />
-              {tab.label}
+              <span>{tab.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* ─── Profile Tab ────────────────────────────────────────────────── */}
+      {/* ─── Profile Tab ──────────────────────────────────────────────────── */}
       {activeTab === 'profile' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="glass-card" style={{ padding: 28 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <User size={18} color="var(--accent)" /> Profile Information
+          <div
+            className="glass-card"
+            style={{
+              padding: 28,
+              background: 'rgba(255, 255, 255, 0.72)',
+              borderRadius: 22,
+            }}
+          >
+            <h2 style={{ fontSize: 17, fontWeight: 800, color: '#182B3A', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <User size={18} color="#1683F8" /> Profile Information
             </h2>
 
-            {/* Avatar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 28 }}>
+            {/* Avatar presentation */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 24 }}>
               {appUser?.photo ? (
                 <Image
                   src={appUser.photo}
-                  alt={appUser.name}
-                  width={64}
-                  height={64}
-                  style={{ borderRadius: '50%', border: '2px solid var(--border)' }}
+                  alt={appUser.name || 'User'}
+                  width={60}
+                  height={60}
+                  style={{
+                    borderRadius: '50%',
+                    border: '2px solid rgba(255, 255, 255, 0.9)',
+                    boxShadow: '0 4px 12px rgba(22, 131, 248, 0.15)',
+                  }}
                 />
               ) : (
                 <div
                   style={{
-                    width: 64,
-                    height: 64,
+                    width: 60,
+                    height: 60,
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, var(--accent), var(--purple))',
+                    background: 'linear-gradient(135deg, #1683F8, #0866D9)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: 700,
-                    color: '#000',
-                    border: '2px solid var(--border)',
+                    color: '#FFFFFF',
+                    border: '2px solid rgba(255, 255, 255, 0.9)',
+                    boxShadow: '0 4px 14px rgba(22, 131, 248, 0.2)',
                   }}
                 >
                   {appUser?.name?.[0]?.toUpperCase() || 'U'}
                 </div>
               )}
               <div>
-                <p style={{ fontWeight: 700, fontSize: 16 }}>{appUser?.name}</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{appUser?.email}</p>
-                <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
-                  Member since{' '}
-                  {appUser
-                    ? new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-                    : '—'}
+                <p style={{ fontWeight: 800, fontSize: 16, color: '#182B3A', margin: 0 }}>
+                  {appUser?.name || 'User'}
                 </p>
+                <p style={{ color: '#718493', fontSize: 13, margin: '2px 0 0' }}>{appUser?.email}</p>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    marginTop: 6,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: '#179354',
+                    background: 'rgba(36, 189, 112, 0.1)',
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                  }}
+                >
+                  <ShieldCheck size={12} /> Verified Account
+                </span>
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#182B3A', display: 'block', marginBottom: 6 }}>
                   Display Name
                 </label>
                 <input
@@ -217,10 +277,12 @@ export default function SettingsPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="input-field"
+                  style={{ maxWidth: 440 }}
                 />
               </div>
+
               <div>
-                <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#182B3A', display: 'block', marginBottom: 6 }}>
                   Email Address
                 </label>
                 <input
@@ -228,90 +290,92 @@ export default function SettingsPage() {
                   value={appUser?.email || ''}
                   disabled
                   className="input-field"
-                  style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                  style={{ opacity: 0.65, cursor: 'not-allowed', maxWidth: 440 }}
                 />
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                  Email is managed by Firebase Authentication
+                <p style={{ fontSize: 11.5, color: '#8FA3B3', marginTop: 4 }}>
+                  Managed securely via Firebase Authentication
                 </p>
               </div>
 
-              <button
-                id="save-profile-btn"
-                onClick={saveProfile}
-                disabled={saving}
-                className="btn-primary"
-                style={{ alignSelf: 'flex-start', padding: '10px 24px' }}
-              >
-                {saved ? (
-                  <>
-                    <CheckCircle size={15} /> Saved!
-                  </>
-                ) : saving ? (
-                  <Loader2 size={15} />
-                ) : (
-                  <>
-                    <Save size={15} /> Save Changes
-                  </>
-                )}
-              </button>
+              <div style={{ marginTop: 8 }}>
+                <button
+                  id="save-profile-btn"
+                  onClick={saveProfile}
+                  disabled={saving}
+                  className="btn-primary"
+                  style={{ padding: '10px 24px' }}
+                >
+                  {saved ? (
+                    <>
+                      <CheckCircle size={15} /> Saved!
+                    </>
+                  ) : saving ? (
+                    <>
+                      <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={15} /> Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* ─── Appearance Tab ─────────────────────────────────────────────── */}
+      {/* ─── Appearance Tab ──────────────────────────────────────────────── */}
       {activeTab === 'appearance' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <ThemeSelector />
         </motion.div>
       )}
 
-      {/* ─── Encryption Tab ──────────────────────────────────────────────── */}
+      {/* ─── Encryption & Keys Tab ────────────────────────────────────────── */}
       {activeTab === 'encryption' && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="glass-card" style={{ padding: 28, marginBottom: 20 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Key size={18} color="var(--accent)" /> RSA Key Pair
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* RSA Key Pair Card */}
+          <div className="glass-card" style={{ padding: 28, background: 'rgba(255, 255, 255, 0.72)', borderRadius: 22 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 800, color: '#182B3A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Key size={18} color="#1683F8" /> RSA-4096 Key Pair Management
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24, lineHeight: 1.7 }}>
-              Your RSA-4096 key pair is used to wrap AES encryption keys. The{' '}
-              <strong>public key</strong> is stored on our server; the{' '}
-              <strong>private key</strong> is encrypted with your passphrase and stored
-              locally — we never see it.
+            <p style={{ color: '#5E7385', fontSize: 13.5, marginBottom: 20, lineHeight: 1.6 }}>
+              Your RSA-4096 key pair wraps file encryption keys during sharing. The public key is synced to the server, while the private key remains strictly on this device, encrypted by your master passphrase.
             </p>
 
             <div
               style={{
-                padding: '14px 16px',
-                background: appUser?.publicKey ? 'var(--green-dim)' : 'var(--warning-dim)',
-                border: `1px solid ${appUser?.publicKey ? 'rgba(0,227,155,0.25)' : 'rgba(245,158,11,0.25)'}`,
-                borderRadius: 12,
-                marginBottom: 20,
+                padding: '12px 16px',
+                borderRadius: 14,
+                background: appUser?.publicKey ? 'rgba(36, 189, 112, 0.1)' : 'rgba(244, 171, 54, 0.1)',
+                border: appUser?.publicKey ? '1px solid rgba(36, 189, 112, 0.25)' : '1px solid rgba(244, 171, 54, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
+                marginBottom: 20,
               }}
             >
               {appUser?.publicKey ? (
                 <>
-                  <CheckCircle size={16} color="var(--green)" />
-                  <span style={{ color: 'var(--green)', fontSize: 13, fontWeight: 500 }}>
-                    Public key is registered — sharing is enabled
+                  <CheckCircle size={16} color="#179354" />
+                  <span style={{ color: '#179354', fontSize: 13, fontWeight: 600 }}>
+                    Public key registered on server — recipient key-wrapping is active
                   </span>
                 </>
               ) : (
                 <>
-                  <Key size={16} color="var(--warning)" />
-                  <span style={{ color: 'var(--warning)', fontSize: 13, fontWeight: 500 }}>
-                    No key pair yet — generate one below to enable sharing
+                  <Key size={16} color="#B47312" />
+                  <span style={{ color: '#B47312', fontSize: 13, fontWeight: 600 }}>
+                    No public key registered yet — generate your key pair below
                   </span>
                 </>
               )}
             </div>
 
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
-                Key Protection Passphrase
+            <div style={{ maxWidth: 440 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#182B3A', display: 'block', marginBottom: 6 }}>
+                Master Key Protection Passphrase
               </label>
               <input
                 id="key-passphrase-input"
@@ -320,8 +384,9 @@ export default function SettingsPage() {
                 onChange={(e) => setKeyPassphrase(e.target.value)}
                 placeholder="Strong passphrase to encrypt your private key"
                 className="input-field"
-                style={{ marginBottom: 16 }}
+                style={{ marginBottom: 14 }}
               />
+
               <button
                 id="generate-keys-btn"
                 onClick={regenerateKeyPair}
@@ -342,204 +407,145 @@ export default function SettingsPage() {
                   </>
                 )}
               </button>
-              {appUser?.publicKey && (
-                <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 10 }}>
-                  ⚠️ Regenerating will invalidate all existing encrypted keys
-                </p>
-              )}
             </div>
           </div>
 
-          <div
-            className="glass-card"
-            style={{
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              fontSize: 13,
-              color: 'var(--text-secondary)',
-              marginBottom: 20,
-            }}
-          >
-            <Monitor size={16} color="var(--text-muted)" />
-            Private key stored:{' '}
-            <span style={{ color: keyPresent ? 'var(--green)' : 'var(--warning)', fontWeight: 600 }}>
-              {keyPresent ? 'Yes (in localStorage, encrypted)' : 'Not found — upload may fail'}
-            </span>
-          </div>
-
-          {/* ── Key Backup / Restore ──────────────────────────────────────── */}
-          <div className="glass-card" style={{ padding: 28 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Key size={18} color="var(--warning)" /> Security Keys — Backup & Restore
+          {/* Key Backup & Restore Card */}
+          <div className="glass-card" style={{ padding: 28, background: 'rgba(255, 255, 255, 0.72)', borderRadius: 22 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 800, color: '#182B3A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Download size={18} color="#1683F8" /> Key Backup & Cross-Device Restore
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24, lineHeight: 1.7 }}>
-              Your private key is stored only in <strong>this browser's localStorage</strong>. If you clear browser data,
-              switch browsers, or use a new device, you will need your backup file to decrypt existing files.
-              The backup is encrypted with your master passphrase — it's safe to store.
+            <p style={{ color: '#5E7385', fontSize: 13.5, marginBottom: 20, lineHeight: 1.6 }}>
+              Download your encrypted key bundle as a backup JSON file. When signing in from another computer, import this file and enter your master passphrase to restore your private key.
             </p>
 
-            {/* Download backup */}
-            <div style={{ marginBottom: 24, padding: '16px 20px', background: 'rgba(0,200,255,0.04)', border: '1px solid rgba(0,200,255,0.15)', borderRadius: 12 }}>
-              <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Download Key Backup</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
-                Save your encrypted private key as a <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 4, fontSize: 12 }}>.json</code> file.
-                Store it somewhere safe (password manager, encrypted drive). You'll need it if you ever clear browser data or switch devices.
-              </p>
-              {!keyPresent && (
-                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8 }}>
-                  <AlertTriangle size={14} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
-                    No key found in this browser. Generate a key pair above, or restore from a backup below.
-                  </p>
-                </div>
-              )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+              {/* Export Button */}
               <button
-                id="download-key-backup-btn"
-                onClick={() => { downloadKeyBackup(); setBackupDownloaded(true); }}
+                onClick={() => {
+                  const ok = downloadKeyBackup();
+                  if (ok) toast.success('Key backup downloaded');
+                }}
                 disabled={!keyPresent}
                 className="btn-primary"
-                style={{ opacity: keyPresent ? 1 : 0.4 }}
+                style={{ padding: '9px 18px', fontSize: 13, borderRadius: 12, opacity: keyPresent ? 1 : 0.5 }}
               >
-                {backupDownloaded ? <><CheckCircle size={15} /> Downloaded!</> : <><Download size={15} /> Download Encrypted Backup</>}
+                <Download size={15} />
+                <span>Download Encrypted Key Backup (.json)</span>
               </button>
             </div>
 
-            {/* Restore backup */}
-            <div style={{ padding: '16px 20px', background: 'rgba(0,227,155,0.04)', border: '1px solid rgba(0,227,155,0.15)', borderRadius: 12 }}>
-              <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Restore Key from Backup</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
-                Upload your backup file and enter the master passphrase you used when the key was created.
-              </p>
+            {/* Restore Section */}
+            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(22, 131, 248, 0.1)' }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#182B3A', marginBottom: 12 }}>
+                Restore Key on this Device
+              </h3>
 
-              {restoreError && (
-                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8 }}>
-                  <AlertTriangle size={14} color="var(--danger)" style={{ flexShrink: 0, marginTop: 2 }} />
-                  <p style={{ fontSize: 12, color: 'var(--danger)', margin: 0 }}>{restoreError}</p>
-                </div>
-              )}
-              {restoreDone && (
-                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'rgba(0,227,155,0.08)', border: '1px solid rgba(0,227,155,0.25)', borderRadius: 8 }}>
-                  <CheckCircle size={14} color="var(--green)" />
-                  <p style={{ fontSize: 12, color: 'var(--green)', margin: 0 }}>Key restored successfully! You can now decrypt your files.</p>
-                </div>
-              )}
-
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Master Passphrase (for the backup)</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 440 }}>
                 <input
-                  id="restore-passphrase-input"
                   type="password"
+                  placeholder="Enter your master passphrase"
                   value={restorePassphrase}
                   onChange={(e) => setRestorePassphrase(e.target.value)}
-                  placeholder="Enter your master passphrase"
                   className="input-field"
                 />
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleRestoreKey(f);
+                  }}
+                  style={{ fontSize: 13, color: '#5E7385' }}
+                />
+
+                {restoreDone && (
+                  <p style={{ fontSize: 12.5, fontWeight: 600, color: '#179354' }}>
+                    ✓ Key bundle successfully restored!
+                  </p>
+                )}
+                {restoreError && (
+                  <p style={{ fontSize: 12.5, fontWeight: 600, color: '#D32F2F' }}>
+                    {restoreError}
+                  </p>
+                )}
               </div>
-              <input
-                ref={fileInputRef}
-                id="restore-key-file-input"
-                type="file"
-                accept=".json,application/json"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleRestoreKey(f);
-                }}
-              />
-              <button
-                id="restore-key-backup-btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={restoring || !restorePassphrase}
-                className="btn-secondary"
-                style={{ opacity: restorePassphrase ? 1 : 0.4 }}
-              >
-                {restoring ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <><Upload size={15} /> Select Backup File (.json)</>}
-              </button>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* ─── Notifications Tab ───────────────────────────────────────────── */}
+      {/* ─── Notifications Tab ────────────────────────────────────────────── */}
       {activeTab === 'notifications' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="glass-card" style={{ padding: 28 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Bell size={18} color="var(--accent)" /> Notification Preferences
+          <div className="glass-card" style={{ padding: 28, background: 'rgba(255, 255, 255, 0.72)', borderRadius: 22 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 800, color: '#182B3A', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Bell size={18} color="#1683F8" /> Notification Preferences
             </h2>
 
-            {[
-              { label: 'Someone views your file', desc: 'Get notified when a recipient opens your file', default: true },
-              { label: 'Someone downloads your file', desc: 'Alert when a file is downloaded', default: true },
-              { label: 'Share link expires', desc: 'Reminder before a share link expires', default: false },
-              { label: 'Access requests', desc: 'When someone requests access to a file', default: true },
-              { label: 'New device login', desc: 'Alert when your account is accessed from a new device', default: true },
-            ].map((notif, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 0',
-                  borderBottom: i < 4 ? '1px solid var(--border)' : 'none',
-                }}
-              >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 14, background: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(255, 255, 255, 0.8)' }}>
                 <div>
-                  <p style={{ fontWeight: 500, fontSize: 14 }}>{notif.label}</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 2 }}>{notif.desc}</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#182B3A', margin: 0 }}>File Shared With You</p>
+                  <p style={{ fontSize: 12, color: '#718493', margin: '2px 0 0' }}>Receive alerts when another user authorizes a file for your account</p>
                 </div>
-                <input
-                  id={`notif-toggle-${i}`}
-                  type="checkbox"
-                  defaultChecked={notif.default}
-                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
-                />
+                <input type="checkbox" checked={notifyShare} onChange={(e) => setNotifyShare(e.target.checked)} style={{ accentColor: '#1683F8', width: 18, height: 18, cursor: 'pointer' }} />
               </div>
-            ))}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 14, background: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(255, 255, 255, 0.8)' }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#182B3A', margin: 0 }}>Download & View Activity</p>
+                  <p style={{ fontSize: 12, color: '#718493', margin: '2px 0 0' }}>Alert me when someone accesses or downloads a shared file</p>
+                </div>
+                <input type="checkbox" checked={notifyDownload} onChange={(e) => setNotifyDownload(e.target.checked)} style={{ accentColor: '#1683F8', width: 18, height: 18, cursor: 'pointer' }} />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 14, background: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(255, 255, 255, 0.8)' }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#182B3A', margin: 0 }}>Security & Audit Events</p>
+                  <p style={{ fontSize: 12, color: '#718493', margin: '2px 0 0' }}>Alert on link revocation, expired access, or unauthorized requests</p>
+                </div>
+                <input type="checkbox" checked={notifySecurity} onChange={(e) => setNotifySecurity(e.target.checked)} style={{ accentColor: '#1683F8', width: 18, height: 18, cursor: 'pointer' }} />
+              </div>
+            </div>
           </div>
         </motion.div>
       )}
 
-      {/* ─── Security Tab ────────────────────────────────────────────────── */}
+      {/* ─── Security Tab ─────────────────────────────────────────────────── */}
       {activeTab === 'security' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="glass-card" style={{ padding: 28 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Shield size={18} color="var(--accent)" /> Security Overview
+          <div className="glass-card" style={{ padding: 28, background: 'rgba(255, 255, 255, 0.72)', borderRadius: 22 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 800, color: '#182B3A', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Shield size={18} color="#1683F8" /> Account Security & Sessions
             </h2>
 
-            {[
-              { label: 'Authentication', value: 'Firebase Authentication', status: 'secure' },
-              { label: 'Encryption', value: 'AES-256-GCM (client-side)', status: 'secure' },
-              { label: 'Key Storage', value: hasStoredPrivateKey() ? 'Private key: Encrypted in localStorage' : 'No private key stored', status: hasStoredPrivateKey() ? 'secure' : 'warning' },
-              { label: 'Transport', value: 'HTTPS (TLS 1.3)', status: 'secure' },
-              { label: 'Server Access to Files', value: 'None (Zero-Knowledge)', status: 'secure' },
-            ].map((item, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 0',
-                  borderBottom: i < 4 ? '1px solid var(--border)' : 'none',
-                }}
-              >
-                <div>
-                  <p style={{ fontWeight: 500, fontSize: 14 }}>{item.label}</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 2 }}>{item.value}</p>
-                </div>
-                <span
-                  className={`badge ${item.status === 'secure' ? 'badge-green' : 'badge-warning'}`}
-                  style={{ fontSize: 10 }}
-                >
-                  {item.status === 'secure' ? '✓ Secure' : '⚠ Warning'}
-                </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ padding: '14px 16px', borderRadius: 14, background: 'rgba(22, 131, 248, 0.06)', border: '1px solid rgba(22, 131, 248, 0.16)' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#0866D9', margin: '0 0 4px' }}>
+                  ACTIVE ENCRYPTED SESSION
+                </p>
+                <p style={{ fontSize: 12.5, color: '#5E7385', margin: 0 }}>
+                  Signed in as <strong>{appUser?.email}</strong>. Authentication tokens automatically refresh using Firebase Auth.
+                </p>
               </div>
-            ))}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(22, 131, 248, 0.08)' }}>
+                <span style={{ fontSize: 13, color: '#5E7385' }}>Security Audit Status</span>
+                <Link href="/dashboard/security" style={{ fontSize: 13, fontWeight: 700, color: '#0866D9', textDecoration: 'none' }}>
+                  Visit Security Center &gt;
+                </Link>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+                <span style={{ fontSize: 13, color: '#5E7385' }}>Audit History Logs</span>
+                <Link href="/dashboard/activity" style={{ fontSize: 13, fontWeight: 700, color: '#0866D9', textDecoration: 'none' }}>
+                  View Full Audit Log &gt;
+                </Link>
+              </div>
+            </div>
           </div>
         </motion.div>
       )}

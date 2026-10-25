@@ -6,31 +6,36 @@ dotenv.config();
 
 const BUCKET = 'encrypted-files';
 
-let bucketReady: Promise<void> | null = null;
+let bucketReady = false;
 
 /**
- * Ensure the encrypted-files bucket exists (created once on first use).
+ * Ensure the encrypted-files bucket exists (verified once on first use).
  */
 export const ensureStorageBucket = async (): Promise<void> => {
-  if (!bucketReady) {
-    bucketReady = (async () => {
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-      if (listError) {
-        throw new Error(`Failed to list storage buckets: ${listError.message}`);
-      }
+  if (bucketReady) return;
 
-      if (!buckets?.some((b) => b.name === BUCKET)) {
-        const { error: createError } = await supabase.storage.createBucket(BUCKET, {
-          public: false,
-        });
-        if (createError && !createError.message.toLowerCase().includes('already exists')) {
-          throw new Error(`Failed to create storage bucket: ${createError.message}`);
-        }
+  try {
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    if (listError) {
+      console.warn(`[storage] Could not list storage buckets (${listError.message}). Proceeding directly with '${BUCKET}'.`);
+      bucketReady = true;
+      return;
+    }
+
+    if (!buckets?.some((b) => b.name === BUCKET)) {
+      const { error: createError } = await supabase.storage.createBucket(BUCKET, {
+        public: false,
+      });
+      if (createError && !createError.message.toLowerCase().includes('already exists')) {
+        console.warn(`[storage] Bucket creation notice: ${createError.message}`);
       }
-    })();
+    }
+
+    bucketReady = true;
+  } catch (err: any) {
+    console.warn(`[storage] Storage bucket check encountered an error (${err?.message || err}). Proceeding directly with '${BUCKET}'.`);
+    bucketReady = true;
   }
-
-  await bucketReady;
 };
 
 /**

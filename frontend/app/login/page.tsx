@@ -16,8 +16,13 @@ import {
   ArrowRight,
   CheckCircle,
   Loader2,
+  ShieldCheck,
+  KeyRound,
+  FileText,
+  Share2,
 } from 'lucide-react';
 import { GoogleIcon } from '../../components/icons/GoogleIcon';
+import BrandLogo from '../../components/icons/BrandLogo';
 import { useAuth } from '../../lib/auth/AuthContext';
 
 const loginSchema = z.object({
@@ -28,10 +33,10 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 const leftFeatures = [
-  { icon: '🔐', title: 'Protect Your Files', desc: 'AES-256-GCM encryption before upload' },
-  { icon: '🚀', title: 'Upload Securely', desc: 'Encrypted directly from your browser' },
-  { icon: '🛡️', title: 'End-to-End Encrypted', desc: 'Zero-knowledge — server sees nothing' },
-  { icon: '🤝', title: 'Share with Confidence', desc: 'Granular permissions and expiry control' },
+  { icon: Lock, title: 'Client-Side E2EE', desc: 'AES-256-GCM encryption before data leaves your browser' },
+  { icon: KeyRound, title: 'RSA-4096 Key Wrapping', desc: 'Secure asymmetric key exchange with zero server knowledge' },
+  { icon: ShieldCheck, title: 'Zero-Knowledge Architecture', desc: 'Server stores only encrypted blobs and signed ciphertext' },
+  { icon: Share2, title: 'Granular Access Controls', desc: 'Dynamic watermarking, view caps, and instant revocation' },
 ];
 
 export default function LoginPage() {
@@ -82,369 +87,260 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: '100vh',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        background: 'var(--primary-bg)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        position: 'relative',
+        background: 'transparent',
       }}
     >
-      {/* ─── Left Panel ─────────────────────────────────────────────────── */}
+      {/* Outer Glass Card Shell */}
       <motion.div
-        initial={{ opacity: 0, x: -40 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0, scale: 0.96, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="glass-card"
         style={{
-          background: 'linear-gradient(135deg, #0A1628 0%, #07111F 100%)',
-          padding: '60px 60px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          position: 'relative',
+          width: '100%',
+          maxWidth: 960,
+          minHeight: 580,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          borderRadius: 28,
+          background: 'rgba(255, 255, 255, 0.72)',
+          border: '1px solid rgba(255, 255, 255, 0.85)',
+          boxShadow: '0 20px 60px rgba(35, 94, 138, 0.12)',
           overflow: 'hidden',
-          borderRight: '1px solid var(--border)',
         }}
       >
-        {/* Background glow */}
+        {/* ─── Left Panel: Branding & Features ────────────────────────────── */}
         <div
           style={{
-            position: 'absolute',
-            top: '30%',
-            left: '-20%',
-            width: 400,
-            height: 400,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(0,200,255,0.07) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 60 }}
-        >
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, var(--accent), var(--green))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Shield size={24} color="#000" />
-          </div>
-          <span style={{ fontSize: 22, fontWeight: 700 }}>
-            Secure<span style={{ color: 'var(--accent)' }}>Vault</span>
-          </span>
-        </motion.div>
-
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          style={{
-            fontSize: 42,
-            fontWeight: 800,
-            lineHeight: 1.1,
-            letterSpacing: '-1.5px',
-            marginBottom: 16,
+            padding: '48px 40px',
+            background: 'linear-gradient(135deg, rgba(235, 247, 254, 0.75) 0%, rgba(208, 237, 252, 0.5) 100%)',
+            borderRight: '1px solid rgba(255, 255, 255, 0.8)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
           }}
         >
-          Your files,{' '}
-          <span className="gradient-text">encrypted.</span>
-          <br />
-          Always.
-        </motion.h1>
+          <div>
+            {/* Logo */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 36 }}>
+              <BrandLogo size={38} />
+              <span style={{ fontSize: 20, fontWeight: 800, color: '#182B3A' }}>
+                Secure<span style={{ color: '#1683F8' }}>Vault</span>
+              </span>
+            </div>
 
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          style={{ color: 'var(--text-secondary)', fontSize: 16, lineHeight: 1.7, marginBottom: 48 }}
-        >
-          Military-grade encryption that happens in your browser.
-          We never see your files or your keys.
-        </motion.p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {leftFeatures.map((f, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + i * 0.1 }}
-              style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}
-            >
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: 'var(--card-bg)',
-                  border: '1px solid var(--border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 20,
-                  flexShrink: 0,
-                }}
-              >
-                {f.icon}
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
-                  {f.title}
-                </div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5 }}>
-                  {f.desc}
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ─── Right Panel (Form) ──────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, x: 40 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '60px 60px',
-        }}
-      >
-        <div style={{ width: '100%', maxWidth: 400 }}>
-          <h2
-            style={{
-              fontSize: 32,
-              fontWeight: 800,
-              letterSpacing: '-1px',
-              marginBottom: 8,
-            }}
-          >
-            Welcome back
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 40 }}>
-            Sign in to your encrypted vault
-          </p>
-
-          {/* Google Sign In */}
-          <motion.button
-            id="google-sign-in-btn"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            onClick={handleGoogle}
-            disabled={googleLoading}
-            style={{
-              width: '100%',
-              padding: '12px 20px',
-              background: 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              color: 'var(--text-primary)',
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              marginBottom: 24,
-              transition: 'all 0.2s',
-              fontFamily: 'Inter, sans-serif',
-            }}
-          >
-            {googleLoading ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <GoogleIcon size={18} />
-            )}
-            Continue with Google
-          </motion.button>
-
-          {/* Divider */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              marginBottom: 24,
-            }}
-          >
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>or</span>
-            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          </div>
-
-          {/* Error */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
+            <h1
               style={{
-                padding: '12px 16px',
-                background: 'var(--danger-dim)',
-                border: '1px solid rgba(239,68,68,0.3)',
-                borderRadius: 10,
-                color: 'var(--danger)',
-                fontSize: 13,
-                marginBottom: 20,
+                fontSize: 32,
+                fontWeight: 800,
+                color: '#182B3A',
+                lineHeight: 1.2,
+                letterSpacing: '-0.8px',
+                marginBottom: 12,
               }}
             >
-              {error}
-            </motion.div>
-          )}
+              Your digital vault,{' '}
+              <span style={{ color: '#1683F8' }}>encrypted.</span>
+            </h1>
+            <p style={{ fontSize: 14, color: '#5E7385', lineHeight: 1.6, marginBottom: 36 }}>
+              Military-grade client-side encryption that executes in your browser. Complete privacy with zero-knowledge servers.
+            </p>
 
-          <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Email */}
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>
-                Email address
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Mail
-                  size={16}
-                  color="var(--text-muted)"
-                  style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}
-                />
-                <input
-                  id="email-input"
-                  type="email"
-                  className="input-field"
-                  placeholder="you@example.com"
-                  style={{ paddingLeft: 42 }}
-                  {...register('email')}
-                />
-              </div>
-              {errors.email && (
-                <span style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4, display: 'block' }}>
-                  {errors.email.message}
-                </span>
-              )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {leftFeatures.map((f, i) => {
+                const Icon = f.icon;
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        background: 'rgba(255, 255, 255, 0.8)',
+                        border: '1px solid rgba(22, 131, 248, 0.18)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#0866D9',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon size={18} />
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: 13.5, fontWeight: 700, color: '#182B3A', margin: 0 }}>
+                        {f.title}
+                      </h4>
+                      <p style={{ fontSize: 12, color: '#718493', margin: '2px 0 0', lineHeight: 1.4 }}>
+                        {f.desc}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid rgba(22, 131, 248, 0.1)' }}>
+            <span style={{ fontSize: 12, color: '#718493' }}>
+              Protected by AES-256-GCM • WebCrypto API Verified
+            </span>
+          </div>
+        </div>
+
+        {/* ─── Right Panel: Sign-In Form ──────────────────────────────────── */}
+        <div
+          style={{
+            padding: '48px 40px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            background: 'rgba(255, 255, 255, 0.82)',
+          }}
+        >
+          <div style={{ maxWidth: 360, width: '100%', margin: '0 auto' }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: '#182B3A', margin: '0 0 6px' }}>
+              Welcome back
+            </h2>
+            <p style={{ fontSize: 13.5, color: '#718493', margin: '0 0 28px' }}>
+              Sign in to decrypt and access your files
+            </p>
+
+            {/* Google Sign In */}
+            <button
+              id="google-sign-in-btn"
+              onClick={handleGoogle}
+              disabled={googleLoading}
+              className="btn-secondary"
+              style={{
+                width: '100%',
+                padding: '11px',
+                borderRadius: 14,
+                marginBottom: 20,
+                fontSize: 13.5,
+              }}
+            >
+              {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <GoogleIcon size={16} />}
+              <span>Continue with Google</span>
+            </button>
+
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <div style={{ flex: 1, height: 1, background: 'rgba(22, 131, 248, 0.12)' }} />
+              <span style={{ color: '#8FA3B3', fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>
+                or with email
+              </span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(22, 131, 248, 0.12)' }} />
             </div>
 
-            {/* Password */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setResetSent(true)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--accent)',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    fontFamily: 'Inter, sans-serif',
-                  }}
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <div style={{ position: 'relative' }}>
-                <Lock
-                  size={16}
-                  color="var(--text-muted)"
-                  style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}
-                />
-                <input
-                  id="password-input"
-                  type={showPassword ? 'text' : 'password'}
-                  className="input-field"
-                  placeholder="••••••••"
-                  style={{ paddingLeft: 42, paddingRight: 42 }}
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((p) => !p)}
-                  style={{
-                    position: 'absolute',
-                    right: 14,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              {errors.password && (
-                <span style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4, display: 'block' }}>
-                  {errors.password.message}
-                </span>
-              )}
-            </div>
-
-            {resetSent && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+            {error && (
+              <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '12px 16px',
-                  background: 'var(--green-dim)',
-                  border: '1px solid rgba(0,227,155,0.3)',
-                  borderRadius: 10,
-                  color: 'var(--green)',
-                  fontSize: 13,
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  background: 'rgba(240, 68, 68, 0.1)',
+                  border: '1px solid rgba(240, 68, 68, 0.25)',
+                  color: '#D32F2F',
+                  fontSize: 12.5,
+                  marginBottom: 16,
+                  fontWeight: 600,
                 }}
               >
-                <CheckCircle size={16} />
-                Password reset email sent (check your inbox)
-              </motion.div>
+                {error}
+              </div>
             )}
 
-            <motion.button
-              id="login-submit-btn"
-              type="submit"
-              disabled={isSubmitting}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              className="btn-primary"
-              style={{ width: '100%', padding: '13px', fontSize: 15, marginTop: 8 }}
-            >
-              {isSubmitting ? (
-                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-              ) : (
-                <>
-                  Sign In <ArrowRight size={16} />
-                </>
-              )}
-            </motion.button>
-          </form>
+            <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12.5, fontWeight: 600, color: '#182B3A', display: 'block', marginBottom: 5 }}>
+                  Email Address
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Mail size={15} color="#8FA3B3" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    id="email-input"
+                    type="email"
+                    className="input-field"
+                    placeholder="you@domain.com"
+                    style={{ paddingLeft: 38 }}
+                    {...register('email')}
+                  />
+                </div>
+                {errors.email && (
+                  <span style={{ color: '#F04444', fontSize: 11.5, marginTop: 4, display: 'block' }}>
+                    {errors.email.message}
+                  </span>
+                )}
+              </div>
 
-          <p
-            style={{
-              textAlign: 'center',
-              color: 'var(--text-secondary)',
-              fontSize: 14,
-              marginTop: 28,
-            }}
-          >
-            Don&apos;t have an account?{' '}
-            <Link
-              href="/register"
-              style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
-            >
-              Create one
-            </Link>
-          </p>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <label style={{ fontSize: 12.5, fontWeight: 600, color: '#182B3A' }}>
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setResetSent(true)}
+                    style={{ background: 'none', border: 'none', color: '#0866D9', fontSize: 11.5, cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={15} color="#8FA3B3" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    id="password-input"
+                    type={showPassword ? 'text' : 'password'}
+                    className="input-field"
+                    placeholder="••••••••"
+                    style={{ paddingLeft: 38, paddingRight: 38 }}
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((p) => !p)}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#8FA3B3', cursor: 'pointer', padding: 0 }}
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <span style={{ color: '#F04444', fontSize: 11.5, marginTop: 4, display: 'block' }}>
+                    {errors.password.message}
+                  </span>
+                )}
+              </div>
+
+              <button
+                id="submit-login-btn"
+                type="submit"
+                disabled={isSubmitting}
+                className="btn-primary"
+                style={{ width: '100%', padding: '12px', borderRadius: 14, marginTop: 8 }}
+              >
+                {isSubmitting ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <>
+                    <span>Unlock Vault</span>
+                    <ArrowRight size={15} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <p style={{ textAlign: 'center', fontSize: 13, color: '#718493', marginTop: 24 }}>
+              Don&apos;t have a vault yet?{' '}
+              <Link href="/register" style={{ color: '#0866D9', fontWeight: 700, textDecoration: 'none' }}>
+                Create account
+              </Link>
+            </p>
+          </div>
         </div>
       </motion.div>
     </div>

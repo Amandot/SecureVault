@@ -8,18 +8,20 @@ const transporter = nodemailer.createTransport({
   secure: process.env.EMAIL_PORT === '465', // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    pass: process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.replace(/\s+/g, '') : undefined,
   },
 });
 
-// Verify connection configuration
-transporter.verify(function (error, success) {
-  if (error) {
-    console.error('SMTP Connection Error:', error);
-  } else {
-    console.log('SMTP Server is ready to take our messages');
-  }
-});
+// Verify connection configuration (non-blocking)
+if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+  transporter.verify(function (error, success) {
+    if (error) {
+      console.warn('⚠️  SMTP Connection Notice:', error.message || error);
+    } else {
+      console.log('✅ SMTP Server is ready to send notifications');
+    }
+  });
+}
 
 interface ShareEmailData {
   shareId: string;

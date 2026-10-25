@@ -161,7 +161,8 @@ router.post('/upload', authenticate, upload.single('encryptedFile'), async (req:
 // ─── GET /api/files/:id ──────────────────────────────────────────────────────
 router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const file = await prisma.file.findFirst({
+    // 1. Check if user is the owner
+    let file = await prisma.file.findFirst({
       where: {
         id: req.params.id,
         ownerId: req.user!.id,
@@ -173,6 +174,44 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       },
     });
 
+    let activeShare: any = null;
+
+    // 2. If not owner, check if the file is shared with this user
+    if (!file) {
+      const share = await prisma.share.findFirst({
+        where: {
+          fileId: req.params.id,
+          isRevoked: false,
+          OR: [
+            { recipientEmail: { equals: req.user!.email, mode: 'insensitive' } },
+            { recipientEmail: null },
+          ],
+        },
+        include: {
+          file: {
+            include: {
+              encryptionLayers: { orderBy: { order: 'asc' } },
+            },
+          },
+        },
+      });
+
+      if (share && !share.file.isDeleted) {
+        const isExpired = share.expiresAt && new Date() > share.expiresAt;
+        const maxViewsReached = share.maxViews && share.viewCount >= share.maxViews;
+
+        if (!isExpired && !maxViewsReached) {
+          file = {
+            ...share.file,
+            // Pass the recipient-specific encrypted key so recipient can decrypt using their own private key
+            encryptedKey: share.encryptedKeyForRecipient || share.file.encryptedKey,
+            shares: [],
+          } as any;
+          activeShare = share;
+        }
+      }
+    }
+
     if (!file) {
       res.status(404).json({ error: 'File not found' });
       return;
@@ -181,11 +220,22 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
     // Always generate a signed URL for the encrypted blob (needed for decryption/preview)
     const encryptedFileUrl = await createSignedDownloadUrl(file.encryptedPath);
 
-    // Only provide a named download URL if download is not disabled
-    // (owner can always download their own files — downloadDisabled applies to share recipients)
-    const downloadUrl = encryptedFileUrl;
+    // Only provide a download URL if download is permitted
+    // (owners can always download; for share recipients, check both share.canDownload and file.downloadDisabled)
+    const canDownload = activeShare ? (activeShare.canDownload && !file.downloadDisabled) : !file.downloadDisabled;
+    const downloadUrl = canDownload ? encryptedFileUrl : undefined;
 
-    res.json({ file: { ...file, size: file.size.toString() }, downloadUrl });
+    res.json({
+      file: { ...file, size: file.size.toString() },
+      downloadUrl,
+      encryptedFileUrl,
+      permissions: activeShare ? {
+        canView: activeShare.canView,
+        canDownload: activeShare.canDownload && !file.downloadDisabled,
+        canEdit: activeShare.canEdit,
+        watermarkEnabled: file.watermarkEnabled,
+      } : undefined,
+    });
   } catch (error) {
     console.error('GET /files/:id error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -216,7 +266,7 @@ router.get('/:id/download', authenticate, async (req: Request, res: Response) =>
           isRevoked: false,
           canDownload: true,
           OR: [
-            { recipientEmail: req.user!.email },
+            { recipientEmail: { equals: req.user!.email, mode: 'insensitive' } },
             { recipientEmail: null },
           ],
         },

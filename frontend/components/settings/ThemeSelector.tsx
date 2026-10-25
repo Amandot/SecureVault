@@ -2,38 +2,46 @@
 
 import { useTheme } from 'next-themes';
 import { motion } from 'framer-motion';
-import { Palette, CheckCircle2 } from 'lucide-react';
+import { Palette, CheckCircle2, Sparkles, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const themes = [
-  { id: 'cyan', name: 'Cyber Cyan', color: '#00C8FF', bg: 'linear-gradient(135deg, #07111F, #0A1628)' },
-  { id: 'emerald', name: 'Matrix Emerald', color: '#00E39B', bg: 'linear-gradient(135deg, #051A15, #0A2921)' },
-  { id: 'purple', name: 'Neon Purple', color: '#8B5CF6', bg: 'linear-gradient(135deg, #1A0B2E, #2D144A)' },
+  {
+    id: 'light',
+    name: 'Blue Glassmorphism',
+    desc: 'Soft sky-blue canvas with frosted white glass and navy text',
+    color: '#1683F8',
+    bg: 'linear-gradient(135deg, #DDF2FC, #C5E8FA)',
+  },
+  {
+    id: 'dark',
+    name: 'Deep Blue Glass',
+    desc: 'Atmospheric midnight slate-blue with glowing translucent glass',
+    color: '#38C6FF',
+    bg: 'linear-gradient(135deg, #0C1A29, #152E48)',
+  },
 ];
 
 export default function ThemeSelector() {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
 
-  // useEffect only runs on the client, so now we can safely show the UI
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
-    return null;
-  }
+  if (!mounted) return null;
 
   return (
-    <div className="glass-card" style={{ padding: 28 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Palette size={18} color="var(--accent)" /> Application Theme
+    <div className="glass-card" style={{ padding: 28, background: 'rgba(255, 255, 255, 0.72)', borderRadius: 22 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 800, color: '#182B3A', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Palette size={18} color="#1683F8" /> Interface Appearance
       </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24, lineHeight: 1.7 }}>
-        Choose a color palette for your SecureVault interface. This preference is saved locally on this device.
+      <p style={{ color: '#5E7385', fontSize: 13.5, marginBottom: 24, lineHeight: 1.6 }}>
+        Select your preferred glassmorphic palette for SecureVault. Both options feature ultra-fine backdrop blur and rounded floating panels.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
         {themes.map((t) => {
           const isActive = theme === t.id;
           return (
@@ -47,62 +55,66 @@ export default function ThemeSelector() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
-                padding: 16,
-                background: isActive ? 'var(--card-bg-hover)' : 'var(--card-bg)',
-                border: isActive ? `1px solid ${t.color}` : '1px solid var(--border)',
-                borderRadius: 16,
+                padding: 18,
+                background: isActive ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.6)',
+                border: isActive ? `2px solid ${t.color}` : '1px solid rgba(255, 255, 255, 0.8)',
+                borderRadius: 18,
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                overflow: 'hidden',
-                boxShadow: isActive ? `0 0 20px ${t.color}20` : 'none',
+                boxShadow: isActive ? '0 8px 24px rgba(22, 131, 248, 0.14)' : '0 2px 8px rgba(35, 94, 138, 0.04)',
                 textAlign: 'left',
+                width: '100%',
               }}
             >
               <div
                 style={{
                   width: '100%',
-                  height: 60,
+                  height: 70,
                   background: t.bg,
-                  borderRadius: 10,
-                  marginBottom: 12,
-                  border: '1px solid rgba(255,255,255,0.05)',
+                  borderRadius: 12,
+                  marginBottom: 14,
+                  border: '1px solid rgba(255, 255, 255, 0.6)',
                   position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 <div
                   style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    background: t.color,
-                    boxShadow: `0 0 20px ${t.color}80`,
+                    padding: '6px 14px',
+                    borderRadius: 999,
+                    background: 'rgba(255, 255, 255, 0.75)',
+                    backdropFilter: 'blur(8px)',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: '#182B3A',
+                    boxShadow: '0 2px 8px rgba(35, 94, 138, 0.1)',
                   }}
-                />
+                >
+                  {t.name}
+                </div>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#182B3A', marginBottom: 4 }}>
                 {t.name}
               </span>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                {isActive ? 'Active Theme' : 'Click to apply'}
+              <span style={{ fontSize: 12, color: '#718493', lineHeight: 1.4 }}>
+                {t.desc}
               </span>
 
               {isActive && (
-                <motion.div
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
+                <div
                   style={{
                     position: 'absolute',
-                    top: 12,
-                    right: 12,
+                    top: 14,
+                    right: 14,
                     color: t.color,
                   }}
                 >
-                  <CheckCircle2 size={18} fill={`${t.color}20`} />
-                </motion.div>
+                  <CheckCircle2 size={18} />
+                </div>
               )}
             </motion.button>
           );

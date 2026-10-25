@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
@@ -21,6 +21,11 @@ import {
   Files,
   Upload,
   Star,
+  Check,
+  ChevronDown,
+  Sparkles,
+  ShieldCheck,
+  FileText,
 } from 'lucide-react';
 import { filesApi } from '../../../lib/api';
 import Link from 'next/link';
@@ -60,18 +65,8 @@ function getFileEmoji(mimeType: string) {
   if (mimeType?.includes('video')) return '🎥';
   if (mimeType?.includes('audio')) return '🎵';
   if (mimeType?.includes('zip') || mimeType?.includes('rar')) return '🗜️';
-  if (mimeType?.includes('text')) return '📝';
+  if (mimeType?.includes('text') || mimeType?.includes('code')) return '📝';
   return '📁';
-}
-
-function FileCardSkeleton() {
-  return (
-    <div className="glass-card" style={{ padding: 20 }}>
-      <div className="skeleton" style={{ width: 48, height: 48, borderRadius: 12, marginBottom: 12 }} />
-      <div className="skeleton" style={{ width: '75%', height: 14, borderRadius: 6, marginBottom: 8 }} />
-      <div className="skeleton" style={{ width: '50%', height: 11, borderRadius: 6 }} />
-    </div>
-  );
 }
 
 export default function MyFilesPage() {
@@ -82,11 +77,10 @@ export default function MyFilesPage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [sortField, setSortField] = useState<SortField>('createdAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [shareFileId, setShareFileId] = useState<string | null>(null);
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
 
-  // Update search from URL param
   useEffect(() => {
     const s = searchParams.get('search');
     if (s) setSearch(s);
@@ -108,7 +102,7 @@ export default function MyFilesPage() {
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to delete file');
-    }
+    },
   });
 
   const toggleFavoriteMutation = useMutation({
@@ -125,19 +119,16 @@ export default function MyFilesPage() {
       if (!passphrase) return;
 
       toast.loading('Downloading and decrypting...', { id: 'download-toast' });
-      
+
       const privateKey = await loadPrivateKey(passphrase);
       if (!privateKey) throw new Error('Private key not found. Please restore from your key backup file.');
 
-      // Fetch the encrypted bytes from the new backend proxy endpoint
       const response = await filesApi.download(file.id);
       const encryptedBuffer = response.data;
 
-      // Get full file metadata including encryption layers if needed
       const fileRes = await filesApi.get(file.id);
       const fileMeta = fileRes.data.file;
 
-      // Ask for layer passphrases if any
       let layers: any[] = [];
       if (fileMeta.encryptionLayers?.length > 0) {
         layers = fileMeta.encryptionLayers.map((layer: any) => {
@@ -171,7 +162,6 @@ export default function MyFilesPage() {
 
       toast.success('Download complete', { id: 'download-toast' });
     } catch (err: any) {
-      console.error(err);
       toast.error(err.message || 'Decryption failed', { id: 'download-toast' });
     }
   };
@@ -187,465 +177,588 @@ export default function MyFilesPage() {
     }
   };
 
-  return (
-    <div>
-      {/* ─── Header ──────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{ marginBottom: 28 }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 4 }}>
-              My Files
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-              {files.length} encrypted {files.length === 1 ? 'file' : 'files'}
-            </p>
-          </div>
-          <Link href="/dashboard/upload" className="btn-primary">
-            <Upload size={16} /> Upload New
-          </Link>
-        </div>
-      </motion.div>
+  const toggleSelect = (id: string) => {
+    setSelectedFileIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
-      {/* ─── Controls ────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+  const toggleSelectAll = () => {
+    if (selectedFileIds.length === files.length) {
+      setSelectedFileIds([]);
+    } else {
+      setSelectedFileIds(files.map((f) => f.id));
+    }
+  };
+
+  return (
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* ─── Page Header ──────────────────────────────────────────────────── */}
+      <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 12,
-          marginBottom: 24,
+          justifyContent: 'space-between',
           flexWrap: 'wrap',
+          gap: 16,
+          marginBottom: 20,
+          width: '100%',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#718493', marginBottom: 4 }}>
+            <span>SecureVault</span>
+            <span>/</span>
+            <span style={{ color: '#0866D9', fontWeight: 600 }}>My Files</span>
+          </div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#182B3A', margin: 0, letterSpacing: '-0.4px' }}>
+            My Files
+          </h1>
+          <p style={{ fontSize: 13, color: '#718493', margin: '3px 0 0' }}>
+            {files.length} client-side encrypted {files.length === 1 ? 'file' : 'files'}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link href="/dashboard/upload" style={{ textDecoration: 'none' }}>
+            <button className="btn-primary" style={{ padding: '9px 18px', fontSize: 13, borderRadius: 14 }}>
+              <Upload size={15} />
+              <span>Upload Files</span>
+            </button>
+          </Link>
+        </div>
+      </div>
+
+      {/* ─── Search, Filters & View Toggle Controls ───────────────────────── */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '12px 18px',
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          background: 'rgba(255, 255, 255, 0.65)',
+          width: '100%',
         }}
       >
         {/* Search */}
-        <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: 360 }}>
+        <div style={{ position: 'relative', flex: '1 1 280px', minWidth: 200 }}>
           <Search
             size={15}
-            color="var(--text-muted)"
-            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}
+            color="#8FA3B3"
+            style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}
           />
           <input
             id="files-search-input"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search files..."
-            className="input-field"
-            style={{ paddingLeft: 38, height: 38, fontSize: 13 }}
+            placeholder="Search by filename or keyword..."
+            style={{
+              width: '100%',
+              height: 38,
+              paddingLeft: 38,
+              paddingRight: 14,
+              borderRadius: 999,
+              background: 'rgba(255, 255, 255, 0.8)',
+              border: '1px solid rgba(255, 255, 255, 0.9)',
+              fontSize: 13,
+              color: '#182B3A',
+              outline: 'none',
+            }}
           />
         </div>
 
-        {/* Sort */}
-        <div style={{ display: 'flex', gap: 6 }}>
-          {([['createdAt', 'Date'], ['filename', 'Name'], ['size', 'Size']] as [SortField, string][]).map(
-            ([field, label]) => (
-              <button
-                key={field}
-                onClick={() => toggleSort(field)}
-                style={{
-                  padding: '6px 14px',
-                  fontSize: 12,
-                  fontWeight: sortField === field ? 600 : 400,
-                  background: sortField === field ? 'var(--accent-dim)' : 'var(--card-bg)',
-                  border: `1px solid ${sortField === field ? 'var(--accent)' : 'var(--border)'}`,
-                  borderRadius: 8,
-                  color: sortField === field ? 'var(--accent)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  fontFamily: 'Inter, sans-serif',
-                }}
-              >
-                {label}
-                {sortField === field &&
-                  (sortOrder === 'asc' ? <SortAsc size={12} /> : <SortDesc size={12} />)}
-              </button>
-            )
-          )}
-        </div>
-
-        {/* View toggle */}
-        <div
-          style={{
-            display: 'flex',
-            background: 'var(--card-bg)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            overflow: 'hidden',
-            marginLeft: 'auto',
-          }}
-        >
-          {([['grid', LayoutGrid], ['list', List]] as ['grid' | 'list', typeof LayoutGrid][]).map(
-            ([mode, Icon]) => (
-              <button
-                key={mode}
-                id={`view-${mode}-btn`}
-                onClick={() => setViewMode(mode)}
-                style={{
-                  padding: '8px 14px',
-                  background: viewMode === mode ? 'var(--accent-dim)' : 'transparent',
-                  border: 'none',
-                  color: viewMode === mode ? 'var(--accent)' : 'var(--text-muted)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <Icon size={16} />
-              </button>
-            )
-          )}
-        </div>
-      </motion.div>
-
-      {/* ─── Files Grid / List ───────────────────────────────────────────── */}
-      {isLoading ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(220px, 1fr))' : '1fr',
-            gap: 16,
-          }}
-        >
-          {Array.from({ length: 6 }).map((_, i) => <FileCardSkeleton key={i} />)}
-        </div>
-      ) : files.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="glass-card"
-          style={{ textAlign: 'center', padding: '80px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-        >
-          <motion.div 
-            animate={{ y: [0, -10, 0] }} 
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <div style={{ width: 100, height: 100, margin: '0 auto 24px', borderRadius: '50%', background: 'var(--accent-dim)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Files size={48} color="var(--accent)" />
-            </div>
-          </motion.div>
-          <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.5px' }}>
-            {search ? 'No files match your search' : 'Your vault is empty'}
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 32, maxWidth: 300 }}>
-            {search ? 'Try adjusting your search or filters to find what you are looking for.' : 'Start securing your files by uploading them. Everything is encrypted before leaving your device.'}
-          </p>
-          {!search && (
-            <Link href="/dashboard/upload" className="btn-primary" style={{ padding: '12px 28px', fontSize: 15 }}>
-              <Upload size={18} /> Upload Your First File
-            </Link>
-          )}
-        </motion.div>
-      ) : viewMode === 'grid' ? (
-        <motion.div
-          layout
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-            gap: 16,
-          }}
-        >
-          {files.map((file, i) => (
-            <motion.div
-              key={file.id}
-              layout
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.04 }}
-              whileHover={{ y: -4 }}
-              className="glass-card"
-              style={{ padding: 20, cursor: 'default', position: 'relative' }}
-            >
-              {/* File icon */}
-              <div style={{ fontSize: 36, marginBottom: 12, lineHeight: 1 }}>
-                {getFileEmoji(file.mimeType)}
-              </div>
-
-              {/* Name */}
-              <p
-                className="truncate"
-                style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}
-                title={file.filename}
-              >
-                {file.filename}
-              </p>
-
-              {/* Meta */}
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-                {formatSize(parseInt(file.size))} •{' '}
-                {new Date(file.createdAt).toLocaleDateString()}
-              </p>
-
-              {/* Tags */}
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 16 }}>
-                <span className="badge badge-accent" style={{ fontSize: 10 }}>
-                  <Lock size={9} /> {file.encryptionType.split('+')[0]}
-                </span>
-                {file.layerCount > 1 && (
-                  <span className="badge badge-green" style={{ fontSize: 10 }}>
-                    {file.layerCount} layers
-                  </span>
-                )}
-                {(file._count?.shares || 0) > 0 && (
-                  <span className="badge badge-purple" style={{ fontSize: 10 }}>
-                    <Globe size={9} /> shared
-                  </span>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  id={`favorite-${file.id}`}
-                  title={file.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-                  onClick={() => toggleFavoriteMutation.mutate(file)}
-                  style={{
-                    flex: 1,
-                    padding: '7px',
-                    background: file.isFavorite ? 'var(--warning-dim)' : 'var(--card-bg)',
-                    border: file.isFavorite ? '1px solid rgba(245,158,11,0.2)' : '1px solid var(--border)',
-                    borderRadius: 8,
-                    color: file.isFavorite ? 'var(--warning)' : 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Star size={14} fill={file.isFavorite ? "currentColor" : "none"} />
-                </button>
-                <button
-                  id={`download-${file.id}`}
-                  title="Download"
-                  onClick={() => handleDownloadFile(file)}
-                  style={{
-                    flex: 1,
-                    padding: '7px',
-                    background: 'var(--card-bg)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Download size={14} />
-                </button>
-                <button
-                  id={`preview-${file.id}`}
-                  title="Preview"
-                  onClick={() => setPreviewFileId(file.id)}
-                  style={{
-                    flex: 1,
-                    padding: '7px',
-                    background: 'var(--accent-dim)',
-                    border: '1px solid rgba(0,200,255,0.2)',
-                    borderRadius: 8,
-                    color: 'var(--accent)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Eye size={14} />
-                </button>
-                <button
-                  id={`share-${file.id}`}
-                  title="Share"
-                  onClick={() => setShareFileId(file.id)}
-                  style={{
-                    flex: 1,
-                    padding: '7px',
-                    background: 'var(--green-dim)',
-                    border: '1px solid rgba(0,227,155,0.2)',
-                    borderRadius: 8,
-                    color: 'var(--green)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Share2 size={14} />
-                </button>
-                <button
-                  id={`delete-${file.id}`}
-                  title="Delete"
-                  onClick={() => {
-                    if (confirm(`Move "${file.filename}" to trash?`)) {
-                      deleteMutation.mutate(file.id);
-                    }
-                  }}
-                  style={{
-                    padding: '7px',
-                    background: 'var(--danger-dim)',
-                    border: '1px solid rgba(239,68,68,0.2)',
-                    borderRadius: 8,
-                    color: 'var(--danger)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-      ) : (
-        /* List View */
-        <motion.div
-          layout
-          className="glass-card"
-          style={{ overflow: 'hidden' }}
-        >
-          {/* Table header */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1fr 1fr auto',
-              gap: 16,
-              padding: '12px 20px',
-              borderBottom: '1px solid var(--border)',
-              fontSize: 11,
-              fontWeight: 700,
-              color: 'var(--text-muted)',
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-            }}
-          >
-            <span>Name</span>
-            <span>Size</span>
-            <span>Encryption</span>
-            <span>Created</span>
-            <span>Actions</span>
+        {/* Sort & View Mode Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Sort Buttons */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {([['createdAt', 'Date'], ['filename', 'Name'], ['size', 'Size']] as [SortField, string][]).map(
+              ([field, label]) => {
+                const isActive = sortField === field;
+                return (
+                  <button
+                    key={field}
+                    onClick={() => toggleSort(field)}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      fontWeight: isActive ? 700 : 500,
+                      borderRadius: 10,
+                      background: isActive ? 'rgba(22, 131, 248, 0.12)' : 'rgba(255, 255, 255, 0.65)',
+                      border: isActive ? '1px solid rgba(22, 131, 248, 0.28)' : '1px solid rgba(255, 255, 255, 0.75)',
+                      color: isActive ? '#0866D9' : '#5E7385',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <span>{label}</span>
+                    {isActive && (sortOrder === 'asc' ? <SortAsc size={12} /> : <SortDesc size={12} />)}
+                  </button>
+                );
+              }
+            )}
           </div>
 
-          {files.map((file, i) => (
-            <motion.div
-              key={file.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: i * 0.03 }}
+          <div style={{ width: 1, height: 20, background: 'rgba(22, 131, 248, 0.15)' }} />
+
+          {/* Grid / List View Toggle */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(255, 255, 255, 0.7)',
+              borderRadius: 10,
+              padding: 2,
+              border: '1px solid rgba(255, 255, 255, 0.85)',
+            }}
+          >
+            <button
+              onClick={() => setViewMode('grid')}
+              title="Grid View"
               style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr 1fr auto',
-                gap: 16,
-                padding: '14px 20px',
-                borderBottom: i < files.length - 1 ? '1px solid var(--border)' : 'none',
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: viewMode === 'grid' ? '#FFFFFF' : 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: viewMode === 'grid' ? '#0866D9' : '#8FA3B3',
+                display: 'flex',
                 alignItems: 'center',
-                transition: 'background 0.2s',
+                justifyContent: 'center',
+                boxShadow: viewMode === 'grid' ? '0 2px 6px rgba(35, 94, 138, 0.1)' : 'none',
               }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLDivElement).style.background = 'rgba(0,200,255,0.02)')
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLDivElement).style.background = 'transparent')
-              }
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-                <span style={{ fontSize: 20 }}>{getFileEmoji(file.mimeType)}</span>
-                <span
-                  className="truncate"
-                  style={{ fontSize: 14, fontWeight: 500 }}
-                  title={file.filename}
-                >
-                  {file.filename}
-                </span>
-              </div>
-              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                {formatSize(parseInt(file.size))}
-              </span>
-              <span className="badge badge-accent" style={{ fontSize: 10, width: 'fit-content' }}>
-                <Lock size={9} />
-                {file.encryptionType.split('+').length} layer{file.encryptionType.split('+').length > 1 ? 's' : ''}
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                {new Date(file.createdAt).toLocaleDateString()}
-              </span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  id={`list-favorite-${file.id}`}
-                  onClick={() => toggleFavoriteMutation.mutate(file)}
-                  className="btn-ghost"
-                  style={{ padding: '6px', borderRadius: 6, color: file.isFavorite ? 'var(--warning)' : 'var(--text-muted)' }}
-                  title={file.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-                >
-                  <Star size={15} fill={file.isFavorite ? "currentColor" : "none"} />
-                </button>
-                <button
-                  id={`list-download-${file.id}`}
-                  onClick={() => handleDownloadFile(file)}
-                  className="btn-ghost"
-                  style={{ padding: '6px', borderRadius: 6 }}
-                  title="Download"
-                >
-                  <Download size={15} />
-                </button>
-                <button
-                  id={`list-preview-${file.id}`}
-                  onClick={() => setPreviewFileId(file.id)}
-                  className="btn-ghost"
-                  style={{ padding: '6px', borderRadius: 6 }}
-                  title="Preview"
-                >
-                  <Eye size={15} />
-                </button>
-                <button
-                  id={`list-share-${file.id}`}
-                  onClick={() => setShareFileId(file.id)}
-                  className="btn-ghost"
-                  style={{ padding: '6px', borderRadius: 6 }}
-                  title="Share"
-                >
-                  <Share2 size={15} />
-                </button>
-                <button
-                  id={`list-delete-${file.id}`}
-                  onClick={() => {
-                    if (confirm(`Move "${file.filename}" to trash?`)) {
-                      deleteMutation.mutate(file.id);
-                    }
-                  }}
-                  className="btn-ghost"
-                  style={{ padding: '6px', borderRadius: 6, color: 'var(--danger)' }}
-                  title="Delete"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </motion.div>
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              title="List View"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: viewMode === 'list' ? '#FFFFFF' : 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: viewMode === 'list' ? '#0866D9' : '#8FA3B3',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: viewMode === 'list' ? '0 2px 6px rgba(35, 94, 138, 0.1)' : 'none',
+              }}
+            >
+              <List size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Files View (Grid or List) ─────────────────────────────────────── */}
+      {isLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="glass-card skeleton" style={{ height: 160, borderRadius: 20 }} />
           ))}
-        </motion.div>
+        </div>
+      ) : files.length === 0 ? (
+        <div
+          className="glass-card"
+          style={{
+            padding: '60px 20px',
+            textAlign: 'center',
+            background: 'rgba(255, 255, 255, 0.65)',
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: 'rgba(22, 131, 248, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              color: '#1683F8',
+            }}
+          >
+            <Files size={28} />
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: '#182B3A', marginBottom: 6 }}>
+            {search ? 'No files match your search' : 'No files in your vault yet'}
+          </h3>
+          <p style={{ fontSize: 14, color: '#718493', marginBottom: 20 }}>
+            {search ? 'Try clearing your search query' : 'Upload and client-side encrypt your documents.'}
+          </p>
+          <Link href="/dashboard/upload">
+            <button className="btn-primary" style={{ padding: '10px 22px', fontSize: 13 }}>
+              <Upload size={15} />
+              Upload Encrypted File
+            </button>
+          </Link>
+        </div>
+      ) : viewMode === 'grid' ? (
+        /* ─── Grid View ──────────────────────────────────────────────────── */
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+          {files.map((file) => {
+            const isSelected = selectedFileIds.includes(file.id);
+            return (
+              <motion.div
+                key={file.id}
+                whileHover={{ y: -3, scale: 1.01 }}
+                transition={{ duration: 0.18 }}
+                className="glass-card"
+                style={{
+                  padding: '18px 20px',
+                  background: isSelected ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.65)',
+                  border: isSelected ? '1px solid #1683F8' : '1px solid rgba(255, 255, 255, 0.75)',
+                  boxShadow: isSelected ? '0 8px 24px rgba(22, 131, 248, 0.15)' : '0 4px 18px rgba(35, 94, 138, 0.05)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  borderRadius: 20,
+                  position: 'relative',
+                }}
+              >
+                {/* Top: Icon + Title + Star */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        background: 'rgba(22, 131, 248, 0.08)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 22,
+                      }}
+                    >
+                      {getFileEmoji(file.mimeType)}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button
+                        onClick={() => toggleFavoriteMutation.mutate(file)}
+                        title={file.isFavorite ? 'Remove star' : 'Star file'}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: file.isFavorite ? '#F4AB36' : '#8FA3B3',
+                          padding: 4,
+                        }}
+                      >
+                        <Star size={16} fill={file.isFavorite ? 'currentColor' : 'none'} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <h3
+                    title={file.filename}
+                    style={{
+                      fontSize: 14.5,
+                      fontWeight: 700,
+                      color: '#182B3A',
+                      margin: '0 0 4px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {file.filename}
+                  </h3>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: '#718493', marginBottom: 12 }}>
+                    <span>{formatSize(parseInt(file.size || '0', 10))}</span>
+                    <span>•</span>
+                    <span>{new Date(file.createdAt).toLocaleDateString()}</span>
+                  </div>
+
+                  {/* Security Badge */}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        background: 'rgba(36, 189, 112, 0.1)',
+                        color: '#179354',
+                        border: '1px solid rgba(36, 189, 112, 0.22)',
+                      }}
+                    >
+                      <Lock size={10} />
+                      {file.layerCount > 1 ? `${file.layerCount}-Layer` : 'AES-256-GCM'}
+                    </span>
+                    {(file._count?.shares || 0) > 0 && (
+                      <span
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: 'rgba(22, 131, 248, 0.1)',
+                          color: '#0866D9',
+                          border: '1px solid rgba(22, 131, 248, 0.22)',
+                        }}
+                      >
+                        Shared ({file._count?.shares})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Card Actions */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingTop: 12,
+                    borderTop: '1px solid rgba(22, 131, 248, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => setPreviewFileId(file.id)}
+                      title="Preview"
+                      className="btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 12, borderRadius: 10 }}
+                    >
+                      <Eye size={13} />
+                      <span>View</span>
+                    </button>
+                    <button
+                      onClick={() => setShareFileId(file.id)}
+                      title="Share"
+                      className="btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 12, borderRadius: 10 }}
+                    >
+                      <Share2 size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleDownloadFile(file)}
+                      title="Download"
+                      className="btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 12, borderRadius: 10 }}
+                    >
+                      <Download size={13} />
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (confirm(`Move "${file.filename}" to trash?`)) {
+                        deleteMutation.mutate(file.id);
+                      }
+                    }}
+                    title="Move to trash"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#8FA3B3',
+                      cursor: 'pointer',
+                      padding: 6,
+                    }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#F04444')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#8FA3B3')}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ─── List View (Matching Reference Table Styling) ───────────────── */
+        <div
+          className="glass-card"
+          style={{
+            padding: '16px 20px',
+            background: 'rgba(255, 255, 255, 0.65)',
+            overflowX: 'auto',
+          }}
+        >
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(22, 131, 248, 0.1)', color: '#8FA3B3', fontSize: 12, fontWeight: 600 }}>
+                <th style={{ padding: '8px 10px 12px 4px', width: 32 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedFileIds.length === files.length && files.length > 0}
+                    onChange={toggleSelectAll}
+                    style={{ accentColor: '#1683F8', cursor: 'pointer' }}
+                  />
+                </th>
+                <th style={{ padding: '8px 12px 12px' }}>Name</th>
+                <th style={{ padding: '8px 12px 12px' }}>Date</th>
+                <th style={{ padding: '8px 12px 12px' }}>Size</th>
+                <th style={{ padding: '8px 12px 12px' }}>Security</th>
+                <th style={{ padding: '8px 12px 12px', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {files.map((file) => {
+                const isSelected = selectedFileIds.includes(file.id);
+                return (
+                  <tr
+                    key={file.id}
+                    style={{
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.8)',
+                      background: isSelected ? 'rgba(22, 131, 248, 0.06)' : 'transparent',
+                    }}
+                  >
+                    <td style={{ padding: '12px 10px 12px 4px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(file.id)}
+                        style={{ accentColor: '#1683F8', cursor: 'pointer' }}
+                      />
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 20 }}>{getFileEmoji(file.mimeType)}</span>
+                        <div>
+                          <p style={{ fontSize: 13.5, fontWeight: 700, color: '#182B3A', margin: 0 }}>
+                            {file.filename}
+                          </p>
+                          <span style={{ fontSize: 11, color: '#8FA3B3' }}>{file.mimeType}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px', fontSize: 12.5, color: '#718493' }}>
+                      {new Date(file.createdAt).toLocaleDateString()}
+                    </td>
+                    <td style={{ padding: '12px', fontSize: 12.5, color: '#718493' }}>
+                      {formatSize(parseInt(file.size || '0', 10))}
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 3,
+                          padding: '3px 9px',
+                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: 'rgba(36, 189, 112, 0.1)',
+                          color: '#179354',
+                          border: '1px solid rgba(36, 189, 112, 0.22)',
+                        }}
+                      >
+                        <Lock size={10} />
+                        {file.layerCount > 1 ? `${file.layerCount}-Layer` : 'AES-256'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                        <button
+                          onClick={() => setPreviewFileId(file.id)}
+                          title="Preview"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.85)',
+                            border: '1px solid rgba(22, 131, 248, 0.2)',
+                            borderRadius: 8,
+                            width: 30,
+                            height: 30,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#1683F8',
+                          }}
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          onClick={() => setShareFileId(file.id)}
+                          title="Share"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.85)',
+                            border: '1px solid rgba(22, 131, 248, 0.2)',
+                            borderRadius: 8,
+                            width: 30,
+                            height: 30,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#0866D9',
+                          }}
+                        >
+                          <Share2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDownloadFile(file)}
+                          title="Download"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.85)',
+                            border: '1px solid rgba(22, 131, 248, 0.2)',
+                            borderRadius: 8,
+                            width: 30,
+                            height: 30,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#24BD70',
+                          }}
+                        >
+                          <Download size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Move "${file.filename}" to trash?`)) {
+                              deleteMutation.mutate(file.id);
+                            }
+                          }}
+                          title="Delete"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.85)',
+                            border: '1px solid rgba(240, 68, 68, 0.2)',
+                            borderRadius: 8,
+                            width: 30,
+                            height: 30,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#F04444',
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* Share Modal */}
-      <AnimatePresence>
-        {shareFileId && (
-          <ShareModal
-            fileId={shareFileId}
-            onClose={() => setShareFileId(null)}
-          />
-        )}
-        {previewFileId && (
-          <PreviewModal
-            fileId={previewFileId}
-            onClose={() => setPreviewFileId(null)}
-          />
-        )}
-      </AnimatePresence>
+      {/* ─── Modals ───────────────────────────────────────────────────────── */}
+      {previewFileId && (
+        <PreviewModal fileId={previewFileId} onClose={() => setPreviewFileId(null)} />
+      )}
+      {shareFileId && (
+        <ShareModal fileId={shareFileId} onClose={() => setShareFileId(null)} />
+      )}
     </div>
   );
 }

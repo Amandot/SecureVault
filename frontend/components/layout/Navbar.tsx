@@ -1,310 +1,416 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, Upload, X, Check, Menu } from 'lucide-react';
+import {
+  Search,
+  Bell,
+  Upload,
+  ChevronDown,
+  Menu,
+  ShieldCheck,
+  Settings,
+  LogOut,
+  User,
+  ExternalLink,
+} from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthContext';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { notificationsApi } from '../../lib/api';
-import { useEffect } from 'react';
+import Image from 'next/image';
 
-const notificationIcons: Record<string, string> = {
-  view: '👁️',
-  download: '⬇️',
-  share: '🔗',
-  request: '📨',
-  revoke: '🚫',
-  expire: '⏰',
-};
+interface NavbarProps {
+  onToggleMobileSidebar?: () => void;
+  onOpenNotifications?: () => void;
+}
 
-export default function Navbar() {
-  const { appUser } = useAuth();
+export default function Navbar({
+  onToggleMobileSidebar,
+  onOpenNotifications,
+}: NavbarProps) {
+  const { appUser, logOut } = useAuth();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  // Poll notifications count
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => notificationsApi.list().then((r) => r.data),
-    refetchInterval: 30000, // poll every 30s
+    queryFn: () => notificationsApi.list().then((r) => r.data).catch(() => null),
+    refetchInterval: 30000,
   });
 
-  const readAllMutation = useMutation({
-    mutationFn: () => notificationsApi.readAll(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
-  });
+  const unreadCount = notifData?.unreadCount || 0;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/dashboard/my-files?search=${encodeURIComponent(searchQuery)}`);
+      router.push(`/dashboard/my-files?search=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
 
+  // Keyboard shortcut ⌘K or Ctrl+K to focus search
   useEffect(() => {
-    const handleToggle = () => {
-      document.getElementById('mobile-sidebar')?.classList.toggle('mobile-sidebar-open');
-      document.getElementById('mobile-sidebar')?.classList.toggle('mobile-sidebar-closed');
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('global-search-input')?.focus();
+      }
     };
-    
-    document.getElementById('mobile-menu-btn')?.addEventListener('click', handleToggle);
-    return () => document.getElementById('mobile-menu-btn')?.removeEventListener('click', handleToggle);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleLogout = async () => {
+    await logOut();
+    router.push('/login');
+  };
+
   return (
-    <header
-      className="navbar-header"
-      style={{
-        position: 'sticky',
-        top: 0,
-        width: '100%',
-        height: 64,
-        background: 'rgba(7, 17, 31, 0.9)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid var(--border)',
-        zIndex: 30,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 clamp(16px, 4vw, 28px)',
-        gap: 16,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+    <header className="navbar-floating-header">
+      {/* ─── Left: Mobile Menu & Flexible Global Search ───────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+        {/* Mobile menu button */}
         <button
-          id="mobile-menu-btn"
-          className="mobile-only-btn"
+          onClick={onToggleMobileSidebar}
+          className="mobile-menu-btn"
+          title="Toggle Navigation"
           style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-primary)',
+            background: 'rgba(255, 255, 255, 0.8)',
+            border: '1px solid rgba(255, 255, 255, 0.9)',
+            borderRadius: 12,
+            width: 38,
+            height: 38,
+            display: 'none', // Shown on mobile via CSS
+            alignItems: 'center',
+            justifyContent: 'center',
             cursor: 'pointer',
-            display: 'none', // Hidden by default, shown via CSS media query
-            padding: 4,
+            color: '#182B3A',
+            flexShrink: 0,
           }}
         >
-          <Menu size={24} />
+          <Menu size={20} />
         </button>
-        {/* ─── Search ──────────────────────────────────────────────────────── */}
-        <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 480 }}>
-        <div style={{ position: 'relative' }}>
+
+        {/* Global Pill Search Bar */}
+        <form onSubmit={handleSearch} style={{ flex: 1, position: 'relative' }}>
           <Search
             size={16}
-            color="var(--text-muted)"
-            style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}
+            color="#8FA3B3"
+            style={{
+              position: 'absolute',
+              left: 16,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              pointerEvents: 'none',
+            }}
           />
           <input
-            id="navbar-search"
+            id="global-search-input"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search files by name, type, or owner..."
-            className="input-field"
+            placeholder="Search encrypted files, folders, or people..."
             style={{
+              width: '100%',
+              height: 42,
               paddingLeft: 42,
-              paddingRight: 16,
-              height: 40,
-              fontSize: 14,
+              paddingRight: 64,
+              background: 'rgba(255, 255, 255, 0.75)',
+              border: '1px solid rgba(255, 255, 255, 0.85)',
+              borderRadius: 999,
+              fontSize: 13.5,
+              fontWeight: 500,
+              color: '#182B3A',
+              outline: 'none',
+              boxShadow: 'inset 0 1px 3px rgba(35, 94, 138, 0.04)',
+              transition: 'all 0.2s ease',
+            }}
+            onFocus={(e) => {
+              e.target.style.background = '#FFFFFF';
+              e.target.style.borderColor = '#1683F8';
+              e.target.style.boxShadow = '0 0 0 3px rgba(22, 131, 248, 0.16)';
+            }}
+            onBlur={(e) => {
+              e.target.style.background = 'rgba(255, 255, 255, 0.75)';
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.85)';
+              e.target.style.boxShadow = 'inset 0 1px 3px rgba(35, 94, 138, 0.04)';
             }}
           />
-        </div>
-      </form>
+          {/* Keyboard shortcut hint */}
+          <div
+            style={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'rgba(240, 246, 252, 0.9)',
+              border: '1px solid rgba(22, 131, 248, 0.18)',
+              borderRadius: 6,
+              padding: '2px 6px',
+              fontSize: 11,
+              fontWeight: 600,
+              color: '#718493',
+              pointerEvents: 'none',
+            }}
+          >
+            ⌘K
+          </div>
+        </form>
       </div>
 
-      {/* ─── Right Actions ────────────────────────────────────────────────── */}
+      {/* ─── Right: Actions & User Capsule ─────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {/* Upload Button */}
-        <Link href="/dashboard/upload">
+        <Link href="/dashboard/upload" style={{ textDecoration: 'none' }}>
           <motion.button
-            id="navbar-upload-btn"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="btn-primary"
-            style={{ padding: '8px 18px', fontSize: 13 }}
+            style={{
+              height: 40,
+              padding: '0 16px',
+              fontSize: 13,
+              borderRadius: 14,
+            }}
           >
             <Upload size={15} />
-            Upload
+            <span className="hidden sm:inline">Upload</span>
           </motion.button>
         </Link>
 
-        {/* Notifications */}
+        {/* Notifications Icon Button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={onOpenNotifications}
+          title="Notifications"
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 14,
+            background: 'rgba(255, 255, 255, 0.75)',
+            border: '1px solid rgba(255, 255, 255, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: unreadCount > 0 ? '#1683F8' : '#718493',
+            position: 'relative',
+            boxShadow: '0 2px 8px rgba(35, 94, 138, 0.04)',
+          }}
+        >
+          <Bell size={17} />
+          {unreadCount > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: 6,
+                right: 6,
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: '#F04444',
+                border: '2px solid #FFFFFF',
+                boxShadow: '0 0 6px rgba(240, 68, 68, 0.7)',
+              }}
+            />
+          )}
+        </motion.button>
+
+        {/* ─── User Profile Capsule with Dropdown (Matching Reference Screenshot) ── */}
         <div style={{ position: 'relative' }}>
           <motion.button
-            id="notifications-btn"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowNotifications((s) => !s)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setUserMenuOpen((prev) => !prev)}
             style={{
-              background: 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              width: 40,
-              height: 40,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: 10,
+              padding: '5px 12px 5px 6px',
+              background: 'rgba(255, 255, 255, 0.85)',
+              border: '1px solid rgba(255, 255, 255, 0.9)',
+              borderRadius: 999,
               cursor: 'pointer',
-              position: 'relative',
-              color: 'var(--text-secondary)',
+              boxShadow: '0 2px 8px rgba(35, 94, 138, 0.04)',
+              textAlign: 'left',
             }}
           >
-            <Bell size={17} />
-            {notifData?.unreadCount > 0 && (
+            {/* Avatar */}
+            {appUser?.photo ? (
+              <Image
+                src={appUser.photo}
+                alt={appUser.name || 'User'}
+                width={32}
+                height={32}
+                style={{ borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #1683F8, #0866D9)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+              >
+                {appUser?.name?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
+
+            {/* User Title & Name */}
+            <div className="hidden md:flex" style={{ flexDirection: 'column' }}>
               <span
                 style={{
-                  position: 'absolute',
-                  top: 6,
-                  right: 6,
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: 'var(--accent)',
-                  boxShadow: '0 0 6px var(--accent)',
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  letterSpacing: '0.8px',
+                  color: '#8FA3B3',
+                  textTransform: 'uppercase',
+                  lineHeight: 1.1,
                 }}
-              />
-            )}
+              >
+                SecureVault Pro
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#182B3A',
+                  maxWidth: 120,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {appUser?.name || 'Authorized User'}
+              </span>
+            </div>
+
+            <ChevronDown size={14} color="#8FA3B3" />
           </motion.button>
 
-          {/* Notifications Dropdown */}
+          {/* User Profile Dropdown Menu */}
           <AnimatePresence>
-            {showNotifications && (
+            {userMenuOpen && (
               <>
                 <div
-                  style={{ position: 'fixed', inset: 0, zIndex: 45 }}
-                  onClick={() => setShowNotifications(false)}
+                  style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+                  onClick={() => setUserMenuOpen(false)}
                 />
                 <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="glass-card"
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ duration: 0.16 }}
                   style={{
                     position: 'absolute',
-                    top: 48,
+                    top: 50,
                     right: 0,
-                    width: 380,
-                    maxHeight: 480,
+                    width: 220,
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
+                    border: '1px solid rgba(255, 255, 255, 0.9)',
+                    borderRadius: 18,
+                    boxShadow: '0 12px 36px rgba(35, 94, 138, 0.14)',
+                    padding: '8px',
                     zIndex: 50,
-                    overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
+                    gap: 3,
                   }}
                 >
-                  <div
-                    style={{
-                      padding: '16px 20px',
-                      borderBottom: '1px solid var(--border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>Notifications</span>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {notifData?.unreadCount > 0 && (
-                        <button
-                          onClick={() => readAllMutation.mutate()}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--accent)',
-                            fontSize: 12,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          <Check size={12} /> Mark all read
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setShowNotifications(false)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
+                  <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid rgba(22, 131, 248, 0.1)' }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#182B3A', margin: 0 }}>
+                      {appUser?.name || 'User'}
+                    </p>
+                    <p style={{ fontSize: 11, color: '#718493', margin: '2px 0 0', wordBreak: 'break-all' }}>
+                      {appUser?.email}
+                    </p>
                   </div>
 
-                  <div style={{ overflowY: 'auto', flex: 1 }}>
-                    {notifData?.notifications?.length === 0 ? (
-                      <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                        No notifications yet
-                      </div>
-                    ) : (
-                      notifData?.notifications?.map(
-                        (n: { id: string; type: string; message: string; isRead: boolean; createdAt: string }) => (
-                          <div
-                            key={n.id}
-                            style={{
-                              padding: '14px 20px',
-                              borderBottom: '1px solid var(--border)',
-                              display: 'flex',
-                              gap: 12,
-                              background: n.isRead ? 'transparent' : 'rgba(0,200,255,0.03)',
-                              cursor: 'default',
-                            }}
-                          >
-                            <span style={{ fontSize: 20 }}>
-                              {notificationIcons[n.type] || '🔔'}
-                            </span>
-                            <div style={{ flex: 1 }}>
-                              <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                                {n.message}
-                              </p>
-                              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                                {new Date(n.createdAt).toLocaleString()}
-                              </p>
-                            </div>
-                            {!n.isRead && (
-                              <div
-                                style={{
-                                  width: 7,
-                                  height: 7,
-                                  borderRadius: '50%',
-                                  background: 'var(--accent)',
-                                  flexShrink: 0,
-                                  marginTop: 5,
-                                }}
-                              />
-                            )}
-                          </div>
-                        )
-                      )
-                    )}
-                  </div>
+                  <Link
+                    href="/dashboard/security"
+                    onClick={() => setUserMenuOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#182B3A',
+                      textDecoration: 'none',
+                    }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(22, 131, 248, 0.08)')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+                  >
+                    <ShieldCheck size={16} color="#1683F8" />
+                    <span>Security Center</span>
+                  </Link>
+
+                  <Link
+                    href="/dashboard/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#182B3A',
+                      textDecoration: 'none',
+                    }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(22, 131, 248, 0.08)')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+                  >
+                    <Settings size={16} color="#718493" />
+                    <span>Settings</span>
+                  </Link>
+
+                  <div style={{ height: 1, background: 'rgba(22, 131, 248, 0.08)', margin: '4px 0' }} />
+
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#F04444',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%',
+                    }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(240, 68, 68, 0.08)')}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+                  >
+                    <LogOut size={16} color="#F04444" />
+                    <span>Sign Out</span>
+                  </button>
                 </motion.div>
               </>
             )}
           </AnimatePresence>
         </div>
-
-        {/* Avatar */}
-        <Link href="/dashboard/settings">
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--accent), var(--purple))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
-              fontWeight: 700,
-              color: '#000',
-              cursor: 'pointer',
-              border: '2px solid var(--border)',
-            }}
-          >
-            {appUser?.name?.[0]?.toUpperCase() || 'U'}
-          </div>
-        </Link>
       </div>
     </header>
   );

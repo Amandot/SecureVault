@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#07111F',
+  themeColor: '#CBEAFC',
 };
 
 export default function RootLayout({
@@ -43,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="light" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -52,16 +52,19 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body suppressHydrationWarning>
+      <body className="light" suppressHydrationWarning>
         <Providers>{children}</Providers>
         <Toaster 
-          theme="dark" 
+          theme="light" 
           position="bottom-right"
           toastOptions={{
             style: {
-              background: 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
+              background: 'rgba(255, 255, 255, 0.85)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.75)',
+              color: '#182B3A',
+              boxShadow: '0 8px 32px rgba(35, 94, 138, 0.12)',
+              borderRadius: '16px',
             }
           }}
         />

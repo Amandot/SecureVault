@@ -78,20 +78,14 @@ export default function ModalPortal({
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0,0,0,0.65)',
-              backdropFilter: 'blur(6px)',
-              WebkitBackdropFilter: 'blur(6px)',
+              background: 'rgba(24, 43, 58, 0.35)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
               zIndex: 9000,
             }}
           />
 
           {/* ── Flex centering wrapper ────────────────────────────────────── */}
-          {/*
-           * This div is the "screen" that the modal is centered inside.
-           * Using flex + justify-content/align-items guarantees perfect
-           * centering regardless of any parent transforms or layouts.
-           * We do NOT use top/left/translate on the inner panel.
-           */}
           <div
             style={{
               position: 'fixed',
@@ -101,10 +95,8 @@ export default function ModalPortal({
               alignItems: 'center',
               justifyContent: 'center',
               padding: 24,
-              // Allow clicking the flex wrapper (but not the modal) to close
               pointerEvents: 'none',
             }}
-            // Stop propagation so clicking the panel doesn't bubble to backdrop
             onClick={onClose}
           >
             {/* ── Modal panel ──────────────────────────────────────────────── */}
@@ -117,16 +109,18 @@ export default function ModalPortal({
               className={className}
               onClick={(e) => e.stopPropagation()}
               style={{
-                // Size — flex handles all centering, no translate needed
                 width: '100%',
                 maxWidth,
                 maxHeight: '90vh',
                 overflowY: 'auto',
                 padding,
-                // Restore pointer events on the panel itself
                 pointerEvents: 'auto',
-                // Responsive: 95vw on mobile, 90vw on tablet, maxWidth on desktop
-                // (the flex wrapper's padding: 24px handles the gutter)
+                background: 'rgba(255, 255, 255, 0.94)',
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
+                borderRadius: 24,
+                border: '1px solid rgba(255, 255, 255, 0.9)',
+                boxShadow: '0 20px 60px rgba(24, 76, 120, 0.18)',
               }}
             >
               {children}

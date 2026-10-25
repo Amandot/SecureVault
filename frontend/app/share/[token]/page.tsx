@@ -307,7 +307,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card"
           style={{ padding: 32, maxWidth: 480, width: '100%', zIndex: 1 }}>
           {/* File card */}
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', padding: '16px 20px', background: 'rgba(0,200,255,0.04)', border: '1px solid rgba(0,200,255,0.12)', borderRadius: 14, marginBottom: 24 }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', padding: '16px 20px', background: 'rgba(22, 131, 248, 0.06)', border: '1px solid rgba(22, 131, 248, 0.16)', borderRadius: 14, marginBottom: 24 }}>
             <div style={{ fontSize: 40, lineHeight: 1 }}>{getFileEmoji(shareData.file.mimeType)}</div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <p className="truncate" style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }} title={shareData.file.filename}>{shareData.file.filename}</p>
@@ -318,8 +318,8 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
 
           {/* Owner */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-dim)', border: '1px solid rgba(0,200,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-              {shareData.owner.photo ? <img src={shareData.owner.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={14} color="var(--accent)" />}
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(22, 131, 248, 0.12)', border: '1px solid rgba(22, 131, 248, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+              {shareData.owner.photo ? <img src={shareData.owner.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={14} color="#1683F8" />}
             </div>
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               Shared by <strong style={{ color: 'var(--text-primary)' }}>{shareData.owner.name}</strong>
@@ -340,8 +340,8 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
           </div>
 
           {/* E2E notice */}
-          <div style={{ padding: '12px 16px', background: 'rgba(0,227,155,0.06)', border: '1px solid rgba(0,227,155,0.15)', borderRadius: 10, marginBottom: 20, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <Shield size={15} color="var(--green)" style={{ marginTop: 1, flexShrink: 0 }} />
+          <div style={{ padding: '12px 16px', background: 'rgba(36, 189, 112, 0.08)', border: '1px solid rgba(36, 189, 112, 0.2)', borderRadius: 10, marginBottom: 20, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <Shield size={15} color="#24BD70" style={{ marginTop: 1, flexShrink: 0 }} />
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
               This file is end-to-end encrypted. Enter your <strong style={{ color: 'var(--text-primary)' }}>master passphrase</strong> to decrypt it locally in your browser. The decrypted content is never sent to any server.
             </p>

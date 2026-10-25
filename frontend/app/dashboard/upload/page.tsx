@@ -370,7 +370,7 @@ export default function UploadPage() {
   const needsCustomText = watermarkConfig.fields.includes('company') || watermarkConfig.fields.includes('custom');
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto' }}>
+    <div style={{ width: '100%', maxWidth: 1000, display: 'flex', flexDirection: 'column' }}>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 6 }}>Secure Upload</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>Your file is encrypted in the browser before upload. We never see your data.</p>
@@ -383,7 +383,7 @@ export default function UploadPage() {
           <input {...getInputProps()} id="file-upload-input" />
           {selectedFile ? (
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--accent-dim)', border: '1px solid rgba(0,200,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 32 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--accent-dim)', border: '1px solid rgba(22, 131, 248, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 32 }}>
                 {selectedFile.type?.includes('pdf') ? '📄' : selectedFile.type?.includes('image') ? '🖼️' : selectedFile.type?.includes('video') ? '🎥' : '📁'}
               </div>
               <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{selectedFile.name}</p>
@@ -395,7 +395,7 @@ export default function UploadPage() {
             </motion.div>
           ) : (
             <motion.div animate={{ scale: isDragActive ? 1.05 : 1 }}>
-              <div className={isDragActive ? 'glow-pulse' : ''} style={{ width: 72, height: 72, borderRadius: 18, background: isDragActive ? 'var(--accent-dim)' : 'var(--card-bg)', border: `2px solid ${isDragActive ? 'var(--accent)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', transition: 'all 0.3s ease' }}>
+              <div className={isDragActive ? 'glow-pulse' : ''} style={{ width: 72, height: 72, borderRadius: 18, background: isDragActive ? 'var(--accent-dim)' : 'rgba(255, 255, 255, 0.8)', border: `2px solid ${isDragActive ? 'var(--accent)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', transition: 'all 0.3s ease' }}>
                 <Upload size={32} color={isDragActive ? 'var(--accent)' : 'var(--text-muted)'} />
               </div>
               <p style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>{isDragActive ? 'Drop your file here' : 'Drag & drop a file to encrypt'}</p>
@@ -413,7 +413,7 @@ export default function UploadPage() {
         </h2>
 
         {/* Layer 1 — always on */}
-        <div style={{ padding: '16px 20px', background: 'rgba(0,200,255,0.04)', border: '1px solid rgba(0,200,255,0.15)', borderRadius: 12, marginBottom: 12 }}>
+        <div style={{ padding: '16px 20px', background: 'rgba(22, 131, 248, 0.06)', border: '1px solid rgba(22, 131, 248, 0.2)', borderRadius: 12, marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>1</span>

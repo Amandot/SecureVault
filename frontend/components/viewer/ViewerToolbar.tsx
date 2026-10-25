@@ -47,7 +47,7 @@ export default function ViewerToolbar({
   onClose
 }: ViewerToolbarProps) {
   return (
-    <motion.div 
+    <motion.div
       initial={{ y: -60 }}
       animate={{ y: 0 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
@@ -57,7 +57,7 @@ export default function ViewerToolbar({
         zIndex: 50,
         width: '100%',
         height: 56,
-        background: 'rgba(10, 15, 25, 0.8)',
+        background: 'rgba(255, 255, 255, 0.8)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--border)',
@@ -69,14 +69,14 @@ export default function ViewerToolbar({
     >
       {/* Left section */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
-        <button 
+        <button
           onClick={onToggleSidebar}
           style={{ background: sidebarOpen ? 'rgba(255,255,255,0.1)' : 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center' }}
           className="hover:bg-white/10 transition-colors"
         >
           <PanelLeft size={20} />
         </button>
-        
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, var(--accent), #0099cc)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Shield size={14} color="#000" />
@@ -89,13 +89,13 @@ export default function ViewerToolbar({
 
       {/* Center section - Navigation & Zoom */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-        <PageNavigator 
+        <PageNavigator
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={onPageChange}
         />
         <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
-        <ZoomControls 
+        <ZoomControls
           zoom={zoom}
           onZoomChange={onZoomChange}
           onFitWidth={onFitWidth}
@@ -105,7 +105,7 @@ export default function ViewerToolbar({
 
       {/* Right section - Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, justifyContent: 'flex-end' }}>
-        <button 
+        <button
           onClick={onRotate}
           title="Rotate"
           style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 8, borderRadius: 8 }}
@@ -113,8 +113,8 @@ export default function ViewerToolbar({
         >
           <RotateCw size={18} />
         </button>
-        
-        <button 
+
+        <button
           onClick={onToggleSearch}
           title="Search"
           style={{ background: searchOpen ? 'rgba(255,255,255,0.1)' : 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 8, borderRadius: 8 }}
@@ -123,7 +123,7 @@ export default function ViewerToolbar({
           <Search size={18} />
         </button>
 
-        <button 
+        <button
           onClick={onToggleFullscreen}
           title="Fullscreen"
           style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 8, borderRadius: 8 }}
@@ -135,7 +135,7 @@ export default function ViewerToolbar({
         <div style={{ width: 1, height: 24, background: 'var(--border)', margin: '0 8px' }} />
 
         <PermissionGuard canDownload={canDownload} blocked={true}>
-          <button 
+          <button
             onClick={onPrint}
             title="Print"
             style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 8, borderRadius: 8 }}
@@ -143,8 +143,8 @@ export default function ViewerToolbar({
           >
             <Printer size={18} />
           </button>
-          
-          <button 
+
+          <button
             onClick={onDownload}
             title="Download"
             style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 8, borderRadius: 8 }}
@@ -154,7 +154,7 @@ export default function ViewerToolbar({
           </button>
         </PermissionGuard>
 
-        <button 
+        <button
           onClick={onClose}
           title="Close Viewer"
           style={{ background: 'var(--danger-dim)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--danger)', cursor: 'pointer', padding: 8, borderRadius: 8, marginLeft: 8 }}
