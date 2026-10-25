@@ -20,7 +20,7 @@ export default function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="cyan" themes={['cyan', 'emerald', 'purple']}>
+      <ThemeProvider attribute="class" defaultTheme="light" themes={['light', 'dark']}>
         <AuthProvider>{children}</AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

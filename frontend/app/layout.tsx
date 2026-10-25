@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#07111F',
+  themeColor: '#DDF2FC',
 };
 
 export default function RootLayout({
@@ -55,13 +55,16 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>
         <Toaster 
-          theme="dark" 
+          theme="light" 
           position="bottom-right"
           toastOptions={{
             style: {
-              background: 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
+              background: 'rgba(255, 255, 255, 0.85)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.75)',
+              color: '#182B3A',
+              boxShadow: '0 8px 32px rgba(35, 94, 138, 0.12)',
+              borderRadius: '16px',
             }
           }}
         />
