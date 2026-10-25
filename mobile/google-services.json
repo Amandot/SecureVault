@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "332797684681",
+    "project_id": "vault-d513f",
+    "storage_bucket": "vault-d513f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:332797684681:android:11fe18cbbdce30ecb49618",
+        "android_client_info": {
+          "package_name": "com.amandot.securevault"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "332797684681-k9jk0827kfujasmcq8paeilm742ghq7f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBrs3ovXj7PJEu2ulOvsjD62tK2rWpc_s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "332797684681-k9jk0827kfujasmcq8paeilm742ghq7f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
